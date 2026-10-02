@@ -1,4 +1,4 @@
-# test-mobile
+# mobile-shell
 
 PoC: running abap2UI5 apps on iOS and Android in a **generic native shell**
 built for the SAP mobile stack (SAP Mobile Services + SAP BTP SDK), with the
