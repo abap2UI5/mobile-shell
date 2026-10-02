@@ -16,7 +16,7 @@ import com.google.firebase.messaging.RemoteMessage
  *
  * Flow: FCM token -> stored locally + registered with SAP Mobile Services
  * (MobileServicesPush) -> ABAP backend pushes via the MS backend REST API
- * (see /abap/zcl_test_mobile_push.clas.abap) -> notification tap deep-links
+ * (see /abap/push/zcl_test_mobile_push.clas.abap) -> notification tap deep-links
  * into the shell with the target abap2UI5 URL.
  */
 class PushService : FirebaseMessagingService() {

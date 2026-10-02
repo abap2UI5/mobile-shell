@@ -1,0 +1,29 @@
+{
+  "global": {
+    "files": "/abap/src/**/*.*"
+  },
+  "dependencies": [
+    {
+      "url": "https://github.com/abap2UI5/abap2UI5",
+      "folder": "/deps/abap2UI5",
+      "files": "/src/**/*.*"
+    }
+  ],
+  "syntax": {
+    "version": "v750",
+    "errorNamespace": "^(Z|Y|LCL_|TY_|LIF_)"
+  },
+  "rules": {
+    "check_syntax": true,
+    "unknown_types": true,
+    "check_include": true,
+    "xml_consistency": true,
+    "description_empty": true,
+    "7bit_ascii": true,
+    "xml_bom": true,
+    "sequential_blank": true,
+    "whitespace_end": true,
+    "line_length": { "length": 255 },
+    "unused_variables": true
+  }
+}

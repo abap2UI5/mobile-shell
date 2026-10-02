@@ -41,4 +41,19 @@ jobs:
             -project Abap2UI5Shell.xcodeproj \
             -scheme Abap2UI5Shell \
             -sdk iphonesimulator \
+            -configuration Debug \
+            -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO
+
+      # For tests on a simulator without a local Xcode build: unzip and
+      # `xcrun simctl install booted Abap2UI5Shell.app` (docs/TESTING.md).
+      # A real device needs a signed build from Xcode - this one only runs
+      # in the simulator.
+      - name: Package simulator app
+        working-directory: ios/build/Build/Products/Debug-iphonesimulator
+        run: ditto -c -k --keepParent Abap2UI5Shell.app "$GITHUB_WORKSPACE/Abap2UI5Shell-simulator.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: abap2ui5-shell-ios-simulator
+          path: Abap2UI5Shell-simulator.zip

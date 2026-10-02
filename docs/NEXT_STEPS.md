@@ -65,6 +65,12 @@ CI" note in PLAN.md was warning about.
 
 ### A2. First real build + on-device smoke test (Phase 0 exit criterion)
 
+**Prepared (2026-10-02):** everything up to the device is ready — the sample
+installs with abapGit (`abap/src/`, linted against abap2UI5 `main` in CI),
+CI hands out the Android debug APK and an iOS simulator build, debug builds
+expose the WebView console, and [`TESTING.md`](TESTING.md) section 0 lists
+the setup; results go into [`TEST_PROTOCOL.md`](TEST_PROTOCOL.md).
+
 CI now proves that both shells compile. Nobody has yet run either against a
 real backend — follow [`TESTING.md`](TESTING.md), which lists the checks
 per platform.
@@ -173,7 +179,7 @@ The maintainer asked to go ahead with the framework integration on
 * D2. **dropped:** `z2ui5_cl_xml_view_cc` sits in the frozen `src/99`
   package and takes no new methods. Apps write the control with
   `z2ui5_cl_ui5_view_builder` (`ns = z2ui5`, `xmlns:z2ui5="z2ui5.cc"`) —
-  see `abap/zcl_test_mobile_poc.clas.abap`.
+  see `abap/src/zcl_test_mobile_poc.clas.abap`.
 * D3. Sample app in the samples repo + docs page (extend the mobile
   documentation beyond `mobile_start.html` with the Stage-2 shell) — once
   D1 is released.
