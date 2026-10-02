@@ -100,7 +100,7 @@ without SAP/Google/Apple accounts (remaining steps documented) · ⬜ open.
 | 0 | Plain shells + bridge v0 | ✅ |
 | 1 | Onboarding, app lock, session handling | 🔶 QR onboarding, biometric app lock, background-expiry reload shipped; BTP SDK onboarding flow itself needs SAP repos |
 | 2 | Push | 🔶 FCM/APNs wiring, deep links, MS device registration and ABAP push class shipped; needs Firebase/APNs/MS credentials to activate |
-| 3 | First-class bridge integration | 🔶 iOS VisionKit scanner + bridge v1 (`getPushToken`, `biometricConfirm`) shipped; `NativeBridgeScan` control ready to move (see `frontend-integration/`) |
+| 3 | First-class bridge integration | 🔶 iOS VisionKit scanner + bridge v1 (`getPushToken`, `biometricConfirm`) shipped; `z2ui5.cc.NativeBridgeScan` in the abap2UI5 framework; controls for the other methods open |
 | 4 | Hardening & distribution | 🔶 managed config both platforms, CI builds, `docs/DISTRIBUTION.md` checklist; pinning/CSP verification are real-device tasks |
 
 The remaining work behind every 🔶 is broken down into an ordered,
@@ -115,8 +115,8 @@ No SDK dependency yet, so everything builds with stock tooling:
 * iOS shell: WKWebView, endpoint configurable, bridge with `getDeviceInfo`
   and `showToast`; `scanBarcode` rejects with `unsupported` (VisionKit
   DataScanner lands in Phase 3).
-* Sample ABAP app (`abap/zcl_test_mobile_poc.clas.abap`) that feature-detects
-  the bridge and calls it via `follow_up_action`.
+* Sample ABAP app (`abap/zcl_test_mobile_poc.clas.abap`); since Phase 3 it
+  scans through the framework control `z2ui5.cc.NativeBridgeScan`.
 
 **Exit criterion:** scan a barcode from an abap2UI5 app running inside the
 Android shell against a real ABAP backend.
@@ -176,14 +176,20 @@ Shipped in this PoC:
   (`BarcodeScanner.swift`) — both platforms now implement the full contract.
 * Bridge contract v1: `getPushToken()` and `biometricConfirm(reason)` added
   (additive, feature-detectable).
-* `NativeBridgeScan` custom control (pattern: `CameraPicture.js`) plus the
-  matching `z2ui5_cl_xml_view_cc` method — staged in
-  [`frontend-integration/`](frontend-integration/) ready to move into the
-  frontend and abap2UI5 repos, so scan results arrive as a normal
-  `client->_event` with arguments instead of hand-written JS.
+* `z2ui5.cc.NativeBridgeScan` — a custom control in the abap2UI5 framework
+  (`app/webapp/cc/NativeBridgeScan.js`), so a scan result arrives as an
+  ordinary event argument instead of hand-written JS. There is no
+  view-builder method: `z2ui5_cl_xml_view_cc` is frozen, apps write the
+  control with `z2ui5_cl_ui5_view_builder` (`ns = z2ui5`,
+  `xmlns:z2ui5="z2ui5.cc"`), as the sample does. The shim fires
+  `abap2ui5native:ready` once it is defined, so a control that rendered
+  before Android injected the bridge renders again.
 
-Remaining: PRs moving the control into the framework repos once the shell
-approach is accepted; contract extensions (NFC, share sheet) as needed.
+Remaining: controls for `getDeviceInfo`, `showToast`, `getPushToken` and
+`biometricConfirm` as concrete apps need them — the `html:script` +
+`follow_up_action` workaround of Phase 0 no longer runs (the framework's CSP
+has no `'unsafe-inline'` and follow-up actions are data, not code);
+contract extensions (NFC, share sheet) as needed.
 
 ### Phase 4 — hardening & distribution
 
@@ -218,8 +224,9 @@ Mobile Services (needs Phase-1 SDK onboarding).
   (e.g. `https://<host>/sap/bc/z2ui5?sap-client=100`).
 * **iOS:** `brew install xcodegen && cd ios && xcodegen generate`, open the
   generated `Abap2UI5Shell.xcodeproj`, run on a device/simulator, enter the URL.
-* **ABAP:** install `abap/zcl_test_mobile_poc.clas.abap` (requires abap2UI5),
-  start it inside the shell, press the bridge buttons.
+* **ABAP:** install `abap/zcl_test_mobile_poc.clas.abap` (requires an abap2UI5
+  release with `z2ui5.cc.NativeBridgeScan`), start it inside the shell, press
+  Scan.
 
 CI builds both shells on every change, so they compile; what has not been
 done is running them against a real backend. The checks to work through on

@@ -40,6 +40,21 @@ Rules:
 * Transport (Android `@JavascriptInterface`, iOS `webkit.messageHandlers`) is
   an implementation detail — ABAP apps talk only to `window.abap2ui5Native`.
 
+## Ready event
+
+Once the shim has defined `window.abap2ui5Native` it fires
+
+```js
+window.dispatchEvent(new Event("abap2ui5native:ready"));
+```
+
+once per document (a re-injection into the same document fires nothing).
+Android injects the shim in `onPageFinished`, which can be after the
+abap2UI5 frontend has rendered its first view — the framework control
+`z2ui5.cc.NativeBridgeScan` renders an invisible placeholder when it finds
+no bridge and listens for this event to render again. Additive within v1;
+code that only reads the bridge on a user action does not need it.
+
 ## Callback mechanism
 
 Async calls register a pending promise under a sequence id; the native side

@@ -14,9 +14,9 @@ in execution order, with dependencies and acceptance criteria.
 * Everything achievable without an SAP/Google/Apple account has been done —
   see *Recently completed*. What is left needs real devices, external
   accounts, or a maintainer decision.
-* The Phase-3 artifacts (`NativeBridgeScan`, view-builder snippet) are still
-  staged in [`frontend-integration/`](../frontend-integration/) and have
-  **not** been moved into the framework repos yet.
+* `NativeBridgeScan` is in the framework as `z2ui5.cc.NativeBridgeScan`
+  (abap2UI5, D1); the view-builder snippet was dropped (D2) and the
+  `frontend-integration/` staging folder is gone.
 * One open code TODO: `android/.../MobileServicesPush.kt` — the push
   registration call needs the Phase-1 Mobile Services session (returns 401
   unauthenticated until then).
@@ -70,7 +70,8 @@ real backend — follow [`TESTING.md`](TESTING.md), which lists the checks
 per platform.
 
 * Run the Android shell on a device/emulator against a real abap2UI5
-  endpoint; execute `zcl_test_mobile_poc`: device info, toast, ZXing scan.
+  endpoint; execute `zcl_test_mobile_poc` (ZXing scan through
+  `z2ui5.cc.NativeBridgeScan`), the other methods from the WebView console.
 * Same on iOS (simulator for info/toast; **scan needs a real device** —
   VisionKit DataScanner does not run in the simulator).
 * Verify the reload-after-background/session-expiry behavior against a real
@@ -159,29 +160,34 @@ platforms via deep link.
 
 ## Block D — decision gate, then framework integration (Phase 3 graduation)
 
-### D0. Decision: adopt the shell approach
+### D0. Decision: adopt the shell approach — **taken**
 
-The staged artifacts graduate only "once the shell approach is accepted"
-(frontend-integration/README.md). Input for the decision: results of A2/A3
-(does the PoC hold up on real devices?) and ideally B3 (auth story).
-Owner/forum: abap2UI5 maintainers.
+The maintainer asked to go ahead with the framework integration on
+2026-10-02, ahead of the A2/A3 device results.
 
-After a positive decision:
-
-* D1. PR to **abap2UI5/frontend**: `NativeBridgeScan.js` →
-  `app/webapp/cc/NativeBridgeScan.js` (pattern `CameraPicture.js`).
-* D2. PR to **abap2UI5/abap2UI5**: `native_bridge_scan` method in
-  `z2ui5_cl_xml_view_cc` (snippet is ready in `frontend-integration/`).
+* D1. **done in abap2UI5/abap2UI5** (branch `claude/loving-brown-4b2ptz`, not merged yet): `z2ui5.cc.NativeBridgeScan`
+  in `app/webapp/cc/` — the frontend lives in the abap2UI5 repo, and
+  abap2UI5/frontend is generated from it, never edited. Node specs cover
+  the scan, cancel/failure, the invisible placeholder outside the shell and
+  the second render on the shim's `abap2ui5native:ready` event.
+* D2. **dropped:** `z2ui5_cl_xml_view_cc` sits in the frozen `src/99`
+  package and takes no new methods. Apps write the control with
+  `z2ui5_cl_ui5_view_builder` (`ns = z2ui5`, `xmlns:z2ui5="z2ui5.cc"`) —
+  see `abap/zcl_test_mobile_poc.clas.abap`.
 * D3. Sample app in the samples repo + docs page (extend the mobile
-  documentation beyond `mobile_start.html` with the Stage-2 shell).
+  documentation beyond `mobile_start.html` with the Stage-2 shell) — once
+  D1 is released.
 * D4. Backlog, additive contract v1+ extensions only as concrete apps need
-  them: NFC, share sheet, push-token control, biometric-confirm-before-save
-  control. Additions only via PR review (PLAN.md risk 5).
+  them: controls for device info, toast, push token and
+  biometric-confirm-before-save; NFC, share sheet. Additions only via PR
+  review (PLAN.md risk 5). Until then those methods are reachable only from
+  the WebView console — the Phase-0 `html:script` + `follow_up_action`
+  workaround no longer runs under the framework's CSP.
 
-**Acceptance for D1/D2:** a view built with
-`native_bridge_scan( ... )` receives the scanned value as a regular
-`client->_event` with arguments — no `html:script` workaround — and renders
-nothing (or a hidden control) in a plain browser.
+**Acceptance for D1:** a view naming `z2ui5:NativeBridgeScan` receives the
+scanned value as an ordinary event argument — no `html:script` workaround —
+and renders an invisible placeholder in a plain browser. Verified in Node
+specs; on a device it is part of A2.
 
 ---
 
@@ -218,7 +224,7 @@ or consciously waived per item.
 ## Suggested sequence
 
 ```
-A1 ✔ ──► A2 ──► A3 ──► D0 (decision) ──► D1–D3 ──► D4 (as needed)
+A1 ✔ ──► A2 ──► A3 ──► D3 ──► D4 (as needed)      D0 ✔  D1 ✔  D2 ✗
                 │
                 └──► B1 ──► B2 ──► B3 ──► B4/B5 ──► C1–C4 ──► E6
 E1, E2, E4a, E7 in parallel once A2 provides real devices

@@ -31,6 +31,15 @@ struct ShellWebView: UIViewRepresentable {
 
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.allowsBackForwardNavigationGestures = true
+        // Debug builds only: lets Safari's Web Inspector attach, so the bridge
+        // methods without a framework control can be called from the console
+        // (docs/TESTING.md section 1). Before 16.4 debug builds are inspectable
+        // without asking.
+        #if DEBUG
+        if #available(iOS 16.4, *) {
+            webView.isInspectable = true
+        }
+        #endif
         context.coordinator.webView = webView
         webView.load(URLRequest(url: url))
         return webView

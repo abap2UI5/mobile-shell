@@ -11,8 +11,15 @@ installed on that system.
 
 ## 1. Bridge smoke test (Phase 0 exit criterion)
 
-Start the shell, enter the endpoint, run `zcl_test_mobile_poc` and press
-each button:
+Start the shell, enter the endpoint and run `zcl_test_mobile_poc`. Its scan
+button is the framework control `z2ui5.cc.NativeBridgeScan` (abap2UI5
+custom controls): the scanned value lands in the input field and a toast,
+a cancel or failure arrives as a "Scan failed: ..." toast.
+
+The other methods have no framework control yet. Call them from the WebView
+console instead - debug builds of both shells are inspectable:
+`chrome://inspect` on the desktop for Android, Safari > Develop > *device*
+for iOS. For example `await abap2ui5Native.getDeviceInfo()`.
 
 | Check | Android | iOS |
 |-------|---------|-----|
@@ -24,8 +31,13 @@ each button:
 | `getPushToken` | rejects with `unavailable` without `google-services.json` | rejects with `unavailable` on the simulator |
 
 Also confirm the negative case: open the same abap2UI5 app in a desktop
-browser. `window.abap2ui5Native` must be undefined and the app must degrade
-instead of erroring.
+browser. `window.abap2ui5Native` must be undefined; the sample keeps its scan
+button visible there (`showInBrowser`), and a press reports "native shell not
+available" instead of erroring.
+
+Android injects the shim after the page has loaded. If the scan button is
+missing on the first screen in the Android shell, the control did not render
+again on the shim's `abap2ui5native:ready` event - report it.
 
 **Phase 0 is done when a barcode scanned in the Android shell arrives in the
 ABAP app against a real backend.**

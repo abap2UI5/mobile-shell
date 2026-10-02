@@ -110,4 +110,15 @@
       return iosCall("biometricConfirm", { reason: String(reason) });
     },
   };
+
+  // Announce the bridge. Android injects this shim once the page has loaded,
+  // which can be after the abap2UI5 frontend rendered a control that asked
+  // for it (z2ui5.cc.NativeBridgeScan): such a control listens for this
+  // event and renders again. Fired once per document, on first injection.
+  if (
+    typeof window.dispatchEvent === "function" &&
+    typeof Event === "function"
+  ) {
+    window.dispatchEvent(new Event("abap2ui5native:ready"));
+  }
 })();

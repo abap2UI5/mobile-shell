@@ -23,7 +23,8 @@ const SHIM = fs.readFileSync(
  */
 function install(transport) {
   const calls = [];
-  const window = {};
+  const events = [];
+  const window = { dispatchEvent: (e) => events.push(e.type) };
 
   if (transport === "android") {
     window.__a2u5Android = {
@@ -58,7 +59,7 @@ function install(transport) {
   } finally {
     global.window = previousWindow;
   }
-  return { window, bridge: window.abap2ui5Native, calls };
+  return { window, bridge: window.abap2ui5Native, calls, events };
 }
 
 test("plain browser gets no bridge object at all", () => {
@@ -67,8 +68,13 @@ test("plain browser gets no bridge object at all", () => {
     "apps feature-detect on window.abap2ui5Native — it must stay undefined");
 });
 
+test("plain browser announces nothing", () => {
+  const { events } = install("browser");
+  assert.deepStrictEqual(events, []);
+});
+
 test("a second injection does not replace the live bridge", () => {
-  const { window } = install("android");
+  const { window, events } = install("android");
   const first = window.abap2ui5Native;
   const previousWindow = global.window;
   global.window = window;
@@ -79,6 +85,8 @@ test("a second injection does not replace the live bridge", () => {
   }
   assert.strictEqual(window.abap2ui5Native, first,
     "re-injection would orphan promises pending on the previous instance");
+  assert.deepStrictEqual(events, ["abap2ui5native:ready"],
+    "the ready event belongs to the first injection only");
 });
 
 for (const transport of ["android", "ios"]) {
@@ -91,6 +99,13 @@ for (const transport of ["android", "ios"]) {
       "getPushToken", "biometricConfirm"]) {
       assert.strictEqual(typeof bridge[method], "function", `${method} missing`);
     }
+  });
+
+  // z2ui5.cc.NativeBridgeScan renders an invisible placeholder when it
+  // finds no bridge and listens for this event to render again.
+  test(`${transport}: announces the bridge once it is defined`, () => {
+    const { events } = install(transport);
+    assert.deepStrictEqual(events, ["abap2ui5native:ready"]);
   });
 
   test(`${transport}: a resolved call settles with the native value`, async () => {

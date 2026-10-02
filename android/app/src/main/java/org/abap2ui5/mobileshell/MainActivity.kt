@@ -3,6 +3,7 @@ package org.abap2ui5.mobileshell
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.content.pm.ApplicationInfo
 import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
@@ -77,6 +78,13 @@ class MainActivity : AppCompatActivity() {
         if (managed.screenshotProtection == true) {
             window.setFlags(WindowManager.LayoutParams.FLAG_SECURE,
                 WindowManager.LayoutParams.FLAG_SECURE)
+        }
+
+        // Debug builds only: lets chrome://inspect attach to the WebView, so
+        // the bridge methods without a framework control can be called from
+        // the console (docs/TESTING.md section 1).
+        if ((applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
+            WebView.setWebContentsDebuggingEnabled(true)
         }
 
         webView = WebView(this)

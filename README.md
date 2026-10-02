@@ -12,8 +12,7 @@ features exposed through a small JS bridge.
 | [`bridge/`](bridge/) | Bridge contract v1 + shared JS shim (source of truth) + contract tests |
 | [`android/`](android/) | Android shell — WebView, ZXing scan, QR onboarding, app lock, FCM push, managed config |
 | [`ios/`](ios/) | iOS shell — WKWebView, VisionKit scan, app lock, APNs push, managed config (XcodeGen) |
-| [`abap/`](abap/) | Sample app exercising the bridge + Mobile Services push client |
-| [`frontend-integration/`](frontend-integration/) | `NativeBridgeScan` custom control, staged for the frontend repo |
+| [`abap/`](abap/) | Sample app scanning through the framework control `z2ui5.cc.NativeBridgeScan` + Mobile Services push client |
 | [`docs/`](docs/) | [Distribution & hardening](docs/DISTRIBUTION.md), [device test runbook](docs/TESTING.md), [detailed open-work plan](docs/NEXT_STEPS.md) |
 
 Status: **Phases 0–4 implemented in PoC scope** (see the status table in
