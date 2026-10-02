@@ -11,7 +11,7 @@ on a ❌; a failing row becomes an issue or a fix, not a workaround.
 | Date / tester | |
 | Backend (host, client, release) | |
 | abap2UI5 commit / version | |
-| test-mobile commit | |
+| mobile-shell commit | |
 | Android device, OS, WebView version (`adb logcat -s WebViewVersion`) | |
 | iOS device or simulator, iOS version | |
 | Shell build (CI artifact / local) | |
