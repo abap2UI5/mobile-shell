@@ -27,9 +27,7 @@ CLASS zcl_test_mobile_poc IMPLEMENTATION.
     " "native shell not available" through OnError instead.
 
     me->client = client.
-    IF client->check_on_init( ).
-      view_display( ).
-    ELSEIF client->check_on_navigated( ).
+    IF client->check_on_navigated( ).
       view_display( ).
     ELSEIF client->check_on_event( ).
       on_event( ).
