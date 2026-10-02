@@ -115,7 +115,7 @@ No SDK dependency yet, so everything builds with stock tooling:
 * iOS shell: WKWebView, endpoint configurable, bridge with `getDeviceInfo`
   and `showToast`; `scanBarcode` rejects with `unsupported` (VisionKit
   DataScanner lands in Phase 3).
-* Sample ABAP app (`abap/zcl_test_mobile_poc.clas.abap`); since Phase 3 it
+* Sample ABAP app (`abap/src/zcl_test_mobile_poc.clas.abap`); since Phase 3 it
   scans through the framework control `z2ui5.cc.NativeBridgeScan`.
 
 **Exit criterion:** scan a barcode from an abap2UI5 app running inside the
@@ -219,14 +219,15 @@ Mobile Services (needs Phase-1 SDK onboarding).
 
 ## Running the PoC
 
-* **Android:** open `android/` in Android Studio (or `./gradlew assembleDebug`
-  with Android SDK 35 installed), run, enter your abap2UI5 URL
+* **Android:** open `android/` in Android Studio (or `gradle assembleDebug`
+  with Gradle 8.9 and Android SDK 35 — the repo carries no wrapper), or take
+  the debug APK from CI (docs/TESTING.md section 0); run, enter your abap2UI5 URL
   (e.g. `https://<host>/sap/bc/z2ui5?sap-client=100`).
 * **iOS:** `brew install xcodegen && cd ios && xcodegen generate`, open the
   generated `Abap2UI5Shell.xcodeproj`, run on a device/simulator, enter the URL.
-* **ABAP:** install `abap/zcl_test_mobile_poc.clas.abap` (requires an abap2UI5
-  release with `z2ui5.cc.NativeBridgeScan`), start it inside the shell, press
-  Scan.
+* **ABAP:** pull this repository with abapGit (it installs `abap/src/`;
+  requires abap2UI5 with `z2ui5.cc.NativeBridgeScan`), start
+  `zcl_test_mobile_poc` inside the shell, press Scan.
 
 CI builds both shells on every change, so they compile; what has not been
 done is running them against a real backend. The checks to work through on

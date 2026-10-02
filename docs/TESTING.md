@@ -6,8 +6,69 @@ turns the PoC from "compiles" into "works" — the open A2/A3 tasks in
 [NEXT_STEPS.md](NEXT_STEPS.md).
 
 None of it needs an SAP, Google or Apple account. What it does need is a
-reachable abap2UI5 endpoint and `abap/zcl_test_mobile_poc.clas.abap`
-installed on that system.
+reachable abap2UI5 endpoint and the sample app installed on that system.
+Record the results in [TEST_PROTOCOL.md](TEST_PROTOCOL.md).
+
+## 0. Preparation
+
+**Backend**
+
+1. abap2UI5 from current `main` (it carries `z2ui5.cc.NativeBridgeScan`;
+   older installations render nothing where the control should be). Pull it
+   with abapGit as usual.
+2. This repository as a second abapGit repository (online, or offline as
+   ZIP): `.abapgit.xml` points at `abap/src/`, so only the sample
+   `zcl_test_mobile_poc` is installed. The push client in `abap/push/` is
+   ABAP Cloud only and not needed before Block C.
+3. Check it in a desktop browser first:
+   `https://<host>/sap/bc/z2ui5?sap-client=<client>&app_start=zcl_test_mobile_poc`
+   — the page opens, the scan button is visible (`showInBrowser`) and a press
+   shows "Scan failed: native shell not available". That proves backend and
+   control before any device is involved.
+4. The device must reach that host over **HTTPS** with a certificate the
+   device trusts — both shells refuse `http://` (section 5). A company CA has
+   to be installed on the device; a debug build of the Android shell accepts
+   a user-installed CA, a release build does not.
+
+**Android shell**
+
+* Without a local build: Actions → `build_android` → latest run on `main` →
+  artifact `abap2ui5-shell-debug-apk`; unzip and `adb install -r app-debug.apk`
+  (or copy the APK to the device and allow installs from unknown sources).
+* With Android Studio: open `android/`, Run. There is no Gradle wrapper in
+  the repo; Android Studio brings its own, on the command line it is
+  `gradle assembleDebug` with Gradle 8.9.
+* Emulator is fine for everything but a real scan — the emulator camera can
+  show a barcode image from the host (Extended controls → Camera → virtual
+  scene), which is enough for a first run.
+
+**iOS shell**
+
+* Simulator without building: Actions → `build_ios` → latest run on `main` →
+  artifact `abap2ui5-shell-ios-simulator`; unzip,
+  `xcrun simctl install booted Abap2UI5Shell.app`,
+  `xcrun simctl launch booted org.abap2ui5.Abap2UI5Shell`. Scanning does not
+  run in the simulator (DataScanner needs a camera).
+* Real device: `brew install xcodegen && cd ios && xcodegen generate`, open
+  `Abap2UI5Shell.xcodeproj`, Signing & Capabilities → pick a team (a free
+  personal team is enough; change the bundle id if Xcode says it is taken),
+  run on the connected device and trust the developer profile under
+  Settings → General → VPN & Device Management.
+
+**Console for the bridge methods without a control**
+
+Debug builds of both shells are inspectable: Chrome → `chrome://inspect` for
+Android (USB debugging on), Safari → Develop → *device* → the page for iOS
+(Web Inspector on under Settings → Safari → Advanced). Then, in the console:
+
+```js
+abap2ui5Native                                  // defined = bridge injected
+await abap2ui5Native.getDeviceInfo()
+await abap2ui5Native.showToast("hello")
+await abap2ui5Native.scanBarcode()
+await abap2ui5Native.biometricConfirm("test")
+await abap2ui5Native.getPushToken()             // rejects "unavailable" before Block C
+```
 
 ## 1. Bridge smoke test (Phase 0 exit criterion)
 

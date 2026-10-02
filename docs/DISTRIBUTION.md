@@ -57,7 +57,7 @@ The shell is a generic client (one URL, no customer code), so both models work:
 * iOS: APNs key/certificate in Mobile Services, `aps-environment`
   entitlement + signed build.
 * Backend: service key of the Mobile Services push API; see
-  `abap/zcl_test_mobile_push.clas.abap`.
+  `abap/push/zcl_test_mobile_push.clas.abap`.
 
 ## Security checklist before production
 

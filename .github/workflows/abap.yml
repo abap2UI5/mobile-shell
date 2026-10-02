@@ -1,0 +1,32 @@
+name: abap
+
+# Lints the sample app (abap/src, what abapGit installs) against the current
+# abap2UI5 main - a framework change that breaks the sample shows up here.
+on:
+  push:
+    paths:
+      - "abap/**"
+      - "abaplint.json"
+      - ".abapgit.xml"
+      - ".github/workflows/abap.yml"
+  pull_request:
+    paths:
+      - "abap/**"
+      - "abaplint.json"
+      - ".abapgit.xml"
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+jobs:
+  abaplint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: abaplint against abap2UI5 main
+        run: npx -y @abaplint/cli@latest abaplint.json
