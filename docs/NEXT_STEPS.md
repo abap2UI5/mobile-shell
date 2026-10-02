@@ -165,7 +165,7 @@ platforms via deep link.
 The maintainer asked to go ahead with the framework integration on
 2026-10-02, ahead of the A2/A3 device results.
 
-* D1. **done in abap2UI5/abap2UI5** (branch `claude/loving-brown-4b2ptz`, not merged yet): `z2ui5.cc.NativeBridgeScan`
+* D1. **done in abap2UI5/abap2UI5** ([abap2UI5/abap2UI5#2830](https://github.com/abap2UI5/abap2UI5/pull/2830), not merged yet): `z2ui5.cc.NativeBridgeScan`
   in `app/webapp/cc/` — the frontend lives in the abap2UI5 repo, and
   abap2UI5/frontend is generated from it, never edited. Node specs cover
   the scan, cancel/failure, the invisible placeholder outside the shell and
