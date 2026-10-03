@@ -1,0 +1,19 @@
+# GitHub Actions only. The workflows pin every action to a commit SHA with
+# the version in a trailing comment (abap2UI5 CONVENTIONS section 2), and
+# this is what moves those pins. There is no npm manifest; abaplint runs
+# through npx. The Gradle dependencies of the Android shell are not covered
+# here yet.
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+      actions-major:
+        patterns: ["*"]
+        update-types: ["major"]

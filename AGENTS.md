@@ -45,6 +45,7 @@ the phase status table and the risks.
 | `abap/push/` | `zcl_test_mobile_push`, the Mobile Services push client. ABAP Cloud only, installed by hand |
 | `docs/` | `DISTRIBUTION.md` (managed config, rollout, hardening), `TESTING.md` (device runbook), `TEST_PROTOCOL.md` (its fill-in sheet), `NEXT_STEPS.md` (open work) |
 | `.github/workflows/` | `abap.yml`, `bridge.yml`, `build-android.yml`, `build-ios.yml` (see "Validation") |
+| `.github/dependabot.yml` | GitHub Actions updates, monthly and grouped. Every action is pinned to a commit SHA with the version in a trailing comment |
 
 ## Rules for the bridge
 
@@ -142,3 +143,22 @@ It does not prove that they work against a backend: that takes a device and
 the runbook in docs/TESTING.md, with results recorded in
 docs/TEST_PROTOCOL.md. When a status changes, update the status table in
 PLAN.md and docs/NEXT_STEPS.md in the same pull request.
+
+## Conventions
+
+- All text files are LF-only, enforced by `.gitattributes`.
+- `.nvmrc` says `22`, the Node version the `abap` and `bridge` workflows
+  set up.
+- Third-party actions are pinned to a commit SHA, with the version in a
+  trailing comment (`uses: actions/checkout@<sha> # v4.4.0`). Dependabot
+  moves the pins. The workflows ask for `contents: read` only.
+- The ecosystem-wide rules (workflow and npm-script naming, toolchain
+  versions, which documentation files exist, commit style) live in
+  [CONVENTIONS.md](https://github.com/abap2UI5/abap2UI5/blob/main/.github/shared/CONVENTIONS.md)
+  and bind this repository too. Known gaps, each waiting on a decision:
+  - There is no `package.json`, so there is no `npm run check` / `npm test`
+    (§3) and no `engines.node` (§4).
+  - abaplint runs as `@abaplint/cli@latest` rather than the ecosystem's pin
+    (§4).
+  - The workflow file names have no verb prefix (`abap.yml`, `bridge.yml`),
+    and the `name:` keys use snake case (`build_android`) (§2).

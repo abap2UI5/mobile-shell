@@ -3,7 +3,10 @@
 PoC: running abap2UI5 apps on iOS and Android in a **generic native shell**
 built for the SAP mobile stack (SAP Mobile Services + SAP BTP SDK), with the
 UI rendered by the regular abap2UI5 frontend in a WebView and native device
-features exposed through a small JS bridge.
+features exposed through a small JS bridge. This is a **source** repository
+in the abap2UI5 ecosystem, for developers who want to try abap2UI5 apps on
+a phone. The code is edited here and checked by CI. It is a proof of
+concept with no releases, not a product.
 
 **Start here: [PLAN.md](PLAN.md)** — goals, architecture, phases, risks.
 
