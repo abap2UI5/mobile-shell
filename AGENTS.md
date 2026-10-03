@@ -103,11 +103,12 @@ the phase status table and the risks.
 - **Views use `z2ui5_cl_ui5_view_builder`.** `z2ui5_cl_xml_view_cc` is
   frozen, so a custom control is written with the builder (`ns = z2ui5`,
   `xmlns:z2ui5="z2ui5.cc"`), as `zcl_test_mobile_poc` does.
-- **The sample needs abap2UI5 `main`.** abaplint resolves abap2UI5 with no
-  `branch` key in `abaplint.json`, so it clones the default branch. That is
-  what the sample needs today, because `z2ui5.cc.NativeBridgeScan` is still
-  under "unreleased" in abap2UI5's `changelog.txt` and docs/TESTING.md tells
-  testers to install abap2UI5 from `main`.
+- **The sample needs abap2UI5 `main`.** `abaplint.json` resolves abap2UI5
+  with `"branch": "main"`, declared rather than left to the default branch
+  (CONVENTIONS §9). That is what the sample needs today, because
+  `z2ui5.cc.NativeBridgeScan` is still under "unreleased" in abap2UI5's
+  `changelog.txt` and docs/TESTING.md tells testers to install abap2UI5
+  from `main`.
 - abaplint checks `abap/src/` at syntax `v750`, with
   `errorNamespace` `^(Z|Y|LCL_|TY_|LIF_)`.
 
