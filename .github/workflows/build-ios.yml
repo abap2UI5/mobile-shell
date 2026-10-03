@@ -12,6 +12,9 @@ on:
       - "bridge/**"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   build:
     # macos-15+ required: current XcodeGen writes Xcode project format 77,
@@ -21,7 +24,7 @@ jobs:
     # again and the image needs bumping (versions are echoed below).
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Verify bridge shim is in sync
         run: diff bridge/native-bridge.js ios/Resources/native-bridge.js
@@ -53,7 +56,7 @@ jobs:
         working-directory: ios/build/Build/Products/Debug-iphonesimulator
         run: ditto -c -k --keepParent Abap2UI5Shell.app "$GITHUB_WORKSPACE/Abap2UI5Shell-simulator.zip"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: abap2ui5-shell-ios-simulator
           path: Abap2UI5Shell-simulator.zip
