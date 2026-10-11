@@ -42,8 +42,8 @@ Rules:
 * **Only the endpoint's origin gets the bridge.** Navigation stays inside the
   shell, so IdP login pages and sites an app links to load in the same
   WebView. The native side answers only the main frame of a page whose
-  origin (scheme, host, port) is the one of the configured endpoint; a push
-  deep link to another origin gets no bridge either. Elsewhere Android
+  origin (scheme, host, port) is the one of the configured endpoint, and the
+  shells ignore a push deep link to another origin. Elsewhere Android
   injects no shim and its transport throws; iOS injects the shim (a
   `WKUserScript` runs in every main-frame document), every call rejects with
   `Error("forbidden")`, and calls from frames inside a page get no answer.

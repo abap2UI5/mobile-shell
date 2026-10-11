@@ -29,7 +29,7 @@ in execution order, with dependencies and acceptance criteria.
 | E1 (partly) | TLS policy enforced on both platforms: Android `network_security_config` (no cleartext, system trust anchors, user CAs in debug builds only) with a commented pinning template, iOS `NSAllowsArbitraryLoads: false`. An `http://` endpoint is refused with an explanation instead of a blank WebView. The **pinning decision itself is still open** (E1 below). |
 | E3 | `app_lock_enabled` manageable by EMM on both platforms; the user toggle disappears and an enforced lock fails closed where no credential is enrolled. |
 | E4 | The Android shell logs the WebView provider/version at start and warns below a documented floor (`WebViewVersion.MINIMUM_MAJOR`). |
-| E8 (partly) | The bridge serves pages of the configured endpoint's origin only (scheme, host, port): Android injects the shim and answers transport calls only there (`BridgeOrigin`, JVM-tested), iOS answers only the main frame of that origin and rejects everything else with `forbidden`. IdP pages, linked sites and deep links to another origin get no bridge. |
+| E8 (partly) | The bridge serves pages of the configured endpoint's origin only (scheme, host, port): Android injects the shim and answers transport calls only there (`BridgeOrigin`, JVM-tested), iOS answers only the main frame of that origin and rejects everything else with `forbidden`. IdP pages and linked sites get no bridge; a push deep link to another origin is ignored (on Android any app could start the exported activity with that extra, a `javascript:` link included). |
 | E5 | `screenshot_protection` manageable by EMM: Android `FLAG_SECURE`, iOS content cover while not in the foreground (documented limitation — iOS cannot block screenshots). |
 | A2/A3 (prep) | [`TESTING.md`](TESTING.md) — device runbook for bridge smoke test, session expiry, QR onboarding, managed config (TestDPC / `simctl` recipes, no EMM needed), TLS policy, WebView floor. Executing it still needs hardware. |
 | Test layer | Bridge shim contract tests (both transports, out-of-order and duplicate settling, teardown mid-call, double injection) on Node with the shells mocked, plus JVM unit tests for QR payload and version parsing. Both gated in CI. |
@@ -158,7 +158,8 @@ Depends on B (registration call needs the authenticated session).
 * C3. MS push API service key for the backend; configure
   `zcl_test_mobile_push`.
 * C4. End-to-end test: ABAP → MS → device on both platforms, including
-  deep link on notification tap (data key `url`) into the correct app.
+  deep link on notification tap (data key `url`) into the correct app. The
+  shells open a deep link only on the configured endpoint's origin.
 
 **Acceptance:** a push sent from ABAP opens the target abap2UI5 app on both
 platforms via deep link.

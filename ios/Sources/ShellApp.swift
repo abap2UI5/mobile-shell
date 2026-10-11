@@ -167,7 +167,11 @@ struct RootView: View {
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: AppDelegate.deepLinkNotification)) { note in
-                if let url = note.userInfo?["url"] as? String {
+                // Same rule as Android: a deep link counts only on the
+                // configured endpoint's origin.
+                if let url = note.userInfo?["url"] as? String,
+                   let origin = ShellWebView.Coordinator.origin(of: URL(string: url)),
+                   origin == ShellWebView.Coordinator.origin(of: URL(string: endpointURL)) {
                     currentURL = url
                 }
             }

@@ -148,8 +148,7 @@ class MainActivity : AppCompatActivity() {
         warnOnOutdatedWebView()
         // A notification tap hands the target URL over as an extra
         // (see PushService); it wins over the configured endpoint once.
-        val deepLink = intent.getStringExtra(PushService.EXTRA_DEEPLINK_URL)
-        val url = deepLink ?: endpointUrl()
+        val url = deepLinkOf(intent) ?: endpointUrl()
         if (url.isNullOrBlank()) askForEndpoint() else loadEndpoint(url)
     }
 
@@ -168,8 +167,19 @@ class MainActivity : AppCompatActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        intent.getStringExtra(PushService.EXTRA_DEEPLINK_URL)?.let { webView.loadUrl(it) }
+        deepLinkOf(intent)?.let { webView.loadUrl(it) }
     }
+
+    /**
+     * The deep link of a notification tap, if it points into the configured
+     * endpoint's origin. This activity is exported as the launcher, so any
+     * app on the device can start it with this extra — a `javascript:` URL
+     * would run in the signed-in app page, any other site would open inside
+     * the trusted shell.
+     */
+    private fun deepLinkOf(intent: Intent?): String? =
+        intent?.getStringExtra(PushService.EXTRA_DEEPLINK_URL)
+            ?.takeIf { BridgeOrigin.isAllowed(it, endpointUrl()) }
 
     override fun onPause() {
         super.onPause()

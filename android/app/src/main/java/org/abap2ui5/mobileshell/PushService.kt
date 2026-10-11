@@ -32,7 +32,8 @@ class PushService : FirebaseMessagingService() {
             ?: getString(R.string.app_name)
         val body = message.notification?.body ?: message.data["alert"] ?: ""
         // Convention: data key "url" carries the full abap2UI5 deep link,
-        // e.g. https://host/sap/bc/z2ui5?sap-client=100&app=zcl_my_app
+        // e.g. https://host/sap/bc/z2ui5?sap-client=100&app=zcl_my_app.
+        // MainActivity opens it only on the configured endpoint's origin.
         val deepLink = message.data["url"]
 
         val intent = Intent(this, MainActivity::class.java).apply {
