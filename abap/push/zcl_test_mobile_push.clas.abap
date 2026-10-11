@@ -53,9 +53,11 @@ CLASS zcl_test_mobile_push IMPLEMENTATION.
     DATA(lv_url) = |https://{ mv_host }/mobileservices/push/v1/backend| &&
                    |/applications/{ mv_app_id }/notifications/users/{ iv_user }|.
 
-    DATA(lv_body) = |\{"alert":"{ iv_alert }"| &&
+    " Both values go into JSON string literals: a quote or backslash in the
+    " alert text would otherwise break the payload or replace the deep link.
+    DATA(lv_body) = |\{"alert":"{ escape( val = iv_alert format = cl_abap_format=>e_json_string ) }"| &&
         COND #( WHEN iv_deep_link IS NOT INITIAL
-                THEN |,"data":\{"url":"{ iv_deep_link }"\}| ) && |\}|.
+                THEN |,"data":\{"url":"{ escape( val = iv_deep_link format = cl_abap_format=>e_json_string ) }"\}| ) && |\}|.
 
     DATA(lo_dest) = cl_http_destination_provider=>create_by_url( lv_url ).
     DATA(lo_client) = cl_web_http_client_manager=>create_by_http_destination( lo_dest ).
