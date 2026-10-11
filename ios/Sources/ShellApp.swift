@@ -102,7 +102,8 @@ struct RootView: View {
                         Button("Unlock") { authenticate() }
                     }
                 } else if let url = URL(string: activeURL), !activeURL.isEmpty {
-                    ShellWebView(url: url, reloadToken: reloadToken)
+                    ShellWebView(url: url, bridgeEndpoint: URL(string: endpointURL),
+                                 reloadToken: reloadToken)
                         .ignoresSafeArea(edges: .bottom)
                 } else {
                     Text("No endpoint configured")

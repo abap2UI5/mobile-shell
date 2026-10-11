@@ -4,6 +4,7 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.ApplicationInfo
+import android.graphics.Bitmap
 import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
@@ -36,12 +37,24 @@ import org.json.JSONObject
  * Services destination in front of it) and the session cookies persist in
  * the WebView's CookieManager. After BACKGROUND_RELOAD_MS in background the
  * SPA is reloaded so an expired server session re-authenticates cleanly.
+ *
+ * The bridge serves pages of the configured endpoint's origin only
+ * (BridgeOrigin): IdP login pages and sites an app links to load in the
+ * same WebView and get neither the shim nor answers from the native side.
  */
 class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
     private var pendingScanId: String? = null
     private var pausedAt: Long = 0
+
+    /**
+     * Whether the page in the main frame may use the bridge. Written on the
+     * UI thread whenever a page starts or finishes, read by [NativeBridge]
+     * on the WebView's bridge thread.
+     */
+    @Volatile
+    private var bridgeAllowed = false
 
     private val scanLauncher = registerForActivityResult(ScanContract()) { result ->
         val id = pendingScanId ?: return@registerForActivityResult
@@ -95,9 +108,17 @@ class MainActivity : AppCompatActivity() {
         webView.webViewClient = object : WebViewClient() {
             // Keep navigation inside the shell; auth redirects (IdP login
             // pages) must also run in here so the cookies land in this
-            // WebView's cookie store.
+            // WebView's cookie store. Only pages of the endpoint's origin
+            // get the bridge.
+            override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
+                bridgeAllowed = BridgeOrigin.isAllowed(url, endpointUrl())
+            }
+
             override fun onPageFinished(view: WebView, url: String) {
-                view.evaluateJavascript(loadAsset("native-bridge.js"), null)
+                bridgeAllowed = BridgeOrigin.isAllowed(view.url, endpointUrl())
+                if (bridgeAllowed) {
+                    view.evaluateJavascript(loadAsset("native-bridge.js"), null)
+                }
             }
         }
         webView.addJavascriptInterface(NativeBridge(), "__a2u5Android")
@@ -261,19 +282,33 @@ class MainActivity : AppCompatActivity() {
         runOnUiThread { webView.evaluateJavascript(js, null) }
     }
 
-    /** Native side of bridge contract v1 — runs on a WebView worker thread. */
+    /**
+     * Native side of bridge contract v1 — runs on a WebView worker thread.
+     *
+     * `addJavascriptInterface` hands `__a2u5Android` to every page, so each
+     * method first checks that the page may use the bridge and throws
+     * otherwise: the page sees a JS error, the shim a rejected promise.
+     */
     inner class NativeBridge {
 
+        private fun requireAllowed() {
+            if (!bridgeAllowed) throw SecurityException("forbidden")
+        }
+
         @JavascriptInterface
-        fun platformInfo(): String = JSONObject()
-            .put("platform", "android")
-            .put("model", "${Build.MANUFACTURER} ${Build.MODEL}")
-            .put("osVersion", Build.VERSION.RELEASE)
-            .put("appVersion", BuildConfig.VERSION_NAME)
-            .toString()
+        fun platformInfo(): String {
+            requireAllowed()
+            return JSONObject()
+                .put("platform", "android")
+                .put("model", "${Build.MANUFACTURER} ${Build.MODEL}")
+                .put("osVersion", Build.VERSION.RELEASE)
+                .put("appVersion", BuildConfig.VERSION_NAME)
+                .toString()
+        }
 
         @JavascriptInterface
         fun showToast(text: String) {
+            requireAllowed()
             runOnUiThread {
                 Toast.makeText(this@MainActivity, text, Toast.LENGTH_SHORT).show()
             }
@@ -281,6 +316,7 @@ class MainActivity : AppCompatActivity() {
 
         @JavascriptInterface
         fun scanBarcode(id: String) {
+            requireAllowed()
             runOnUiThread {
                 if (pendingScanId != null) {
                     resolveBridge(id, "null", "busy")
@@ -296,6 +332,7 @@ class MainActivity : AppCompatActivity() {
 
         @JavascriptInterface
         fun getPushToken(id: String) {
+            requireAllowed()
             val token = PushService.storedToken(this@MainActivity)
             if (token != null) {
                 resolveBridge(id, JSONObject.quote(token), null)
@@ -306,6 +343,7 @@ class MainActivity : AppCompatActivity() {
 
         @JavascriptInterface
         fun biometricConfirm(id: String, reason: String) {
+            requireAllowed()
             runOnUiThread {
                 AppLock.confirm(this@MainActivity, reason,
                     onResult = { ok -> resolveBridge(id, if (ok) "true" else "false", null) },

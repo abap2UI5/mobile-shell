@@ -96,6 +96,11 @@ browser. `window.abap2ui5Native` must be undefined; the sample keeps its scan
 button visible there (`showInBrowser`), and a press reports "native shell not
 available" instead of erroring.
 
+And the foreign-origin case: follow a link from the app to another site (or
+open one through the IdP redirect) and run the console calls there. Android:
+`window.abap2ui5Native` is undefined and `__a2u5Android.platformInfo()`
+throws. iOS: every call rejects with `forbidden`.
+
 Android injects the shim after the page has loaded. If the scan button is
 missing on the first screen in the Android shell, the control did not render
 again on the shim's `abap2ui5native:ready` event - report it.

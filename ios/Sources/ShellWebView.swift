@@ -8,8 +8,16 @@ import WebKit
 /// The shared shim (Resources/native-bridge.js, copy of /bridge/native-bridge.js)
 /// is injected as a WKUserScript; calls arrive via the "a2u5Bridge" message
 /// handler and are settled through window.__a2u5BridgeResolve(id, result, error).
+///
+/// Only the main frame of a page from the configured endpoint's origin may use
+/// the bridge. IdP login pages and sites an app links to load in the same
+/// WebView; the user script reaches them too, but every call they make is
+/// rejected with "forbidden". Calls from frames inside a page are ignored.
 struct ShellWebView: UIViewRepresentable {
     let url: URL
+    /// The configured endpoint (not a deep link): its origin is the one the
+    /// bridge serves.
+    var bridgeEndpoint: URL?
     /// Increment to force a reload (session-expiry handling, see RootView).
     var reloadToken: Int = 0
 
@@ -41,11 +49,13 @@ struct ShellWebView: UIViewRepresentable {
         }
         #endif
         context.coordinator.webView = webView
+        context.coordinator.allowedOrigin = Coordinator.origin(of: bridgeEndpoint)
         webView.load(URLRequest(url: url))
         return webView
     }
 
     func updateUIView(_ webView: WKWebView, context: Context) {
+        context.coordinator.allowedOrigin = Coordinator.origin(of: bridgeEndpoint)
         if context.coordinator.lastReloadToken != reloadToken {
             context.coordinator.lastReloadToken = reloadToken
             webView.load(URLRequest(url: url))
@@ -61,6 +71,23 @@ struct ShellWebView: UIViewRepresentable {
         weak var webView: WKWebView?
         var lastReloadToken = 0
         var lastRequestedURL: String?
+        /// `scheme://host:port` of the configured endpoint; nil allows nothing.
+        var allowedOrigin: String?
+
+        static func origin(of url: URL?) -> String? {
+            guard let url, let scheme = url.scheme?.lowercased(),
+                  scheme == "https" || scheme == "http",
+                  let host = url.host?.lowercased(), !host.isEmpty else { return nil }
+            return "\(scheme)://\(host):\(url.port ?? (scheme == "https" ? 443 : 80))"
+        }
+
+        /// WKSecurityOrigin reports port 0 for the scheme's default port.
+        static func origin(of frame: WKFrameInfo) -> String {
+            let origin = frame.securityOrigin
+            let scheme = origin.protocol.lowercased()
+            let port = origin.port != 0 ? origin.port : (scheme == "https" ? 443 : 80)
+            return "\(scheme)://\(origin.host.lowercased()):\(port)"
+        }
 
         func userContentController(_ userContentController: WKUserContentController,
                                    didReceive message: WKScriptMessage) {
@@ -68,6 +95,15 @@ struct ShellWebView: UIViewRepresentable {
                   let body = message.body as? [String: Any],
                   let id = body["id"] as? String,
                   let method = body["method"] as? String else { return }
+
+            // A frame inside the page gets no answer: it would land in the
+            // main frame and could settle one of that page's own calls.
+            guard message.frameInfo.isMainFrame else { return }
+            guard let allowedOrigin,
+                  Self.origin(of: message.frameInfo) == allowedOrigin else {
+                resolve(id: id, resultJSON: "null", error: "forbidden")
+                return
+            }
 
             switch method {
             case "getDeviceInfo":

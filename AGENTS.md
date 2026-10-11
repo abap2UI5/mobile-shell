@@ -37,7 +37,7 @@ the phase status table and the risks.
 | `bridge/test/native-bridge.test.js` | Contract tests: the shim against both transports, mocked, in Node |
 | `android/` | Android shell (Kotlin, Gradle): WebView, ZXing scan, QR onboarding, app lock, FCM push, managed config |
 | `android/app/src/main/assets/native-bridge.js` | Byte-identical copy of `bridge/native-bridge.js` |
-| `android/app/src/test/` | JVM unit tests (`OnboardingTest`, `WebViewVersionTest`) |
+| `android/app/src/test/` | JVM unit tests (`OnboardingTest`, `WebViewVersionTest`, `BridgeOriginTest`) |
 | `ios/` | iOS shell (SwiftUI, WKWebView, VisionKit scan, app lock, APNs push, managed config) |
 | `ios/project.yml` | XcodeGen spec. The Xcode project and `Info.plist` are generated from it and git-ignored |
 | `ios/Resources/native-bridge.js` | Byte-identical copy of `bridge/native-bridge.js` |
@@ -75,6 +75,10 @@ the phase status table and the risks.
   `screenshot_protection`) carry the same names on both platforms, with the
   precedence managed configuration > stored preference > manual entry/QR
   (docs/DISTRIBUTION.md). An unset key stays under user control.
+- **The bridge serves the endpoint's origin only.** Android checks the main
+  frame's URL with `BridgeOrigin` (JVM-tested) before injecting the shim and
+  in every `@JavascriptInterface` method; iOS checks the message's frame and
+  security origin. A new bridge method keeps that check on both platforms.
 - **HTTPS only.** Android's `network_security_config.xml` allows no
   cleartext, and iOS sets `NSAllowsArbitraryLoads: false` in `project.yml`.
   Adding an exception has to be a deliberate, documented edit.

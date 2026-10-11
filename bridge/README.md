@@ -39,6 +39,16 @@ Rules:
   major version and must keep the old names working for one release.
 * Transport (Android `@JavascriptInterface`, iOS `webkit.messageHandlers`) is
   an implementation detail — ABAP apps talk only to `window.abap2ui5Native`.
+* **Only the endpoint's origin gets the bridge.** Navigation stays inside the
+  shell, so IdP login pages and sites an app links to load in the same
+  WebView. The native side answers only the main frame of a page whose
+  origin (scheme, host, port) is the one of the configured endpoint; a push
+  deep link to another origin gets no bridge either. Elsewhere Android
+  injects no shim and its transport throws; iOS injects the shim (a
+  `WKUserScript` runs in every main-frame document), every call rejects with
+  `Error("forbidden")`, and calls from frames inside a page get no answer.
+  Known gap: Android's `@JavascriptInterface` cannot tell frames apart, so a
+  frame inside an app page reaches the transport there (docs/NEXT_STEPS.md, E8).
 
 ## Ready event
 

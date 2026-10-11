@@ -29,6 +29,7 @@ in execution order, with dependencies and acceptance criteria.
 | E1 (partly) | TLS policy enforced on both platforms: Android `network_security_config` (no cleartext, system trust anchors, user CAs in debug builds only) with a commented pinning template, iOS `NSAllowsArbitraryLoads: false`. An `http://` endpoint is refused with an explanation instead of a blank WebView. The **pinning decision itself is still open** (E1 below). |
 | E3 | `app_lock_enabled` manageable by EMM on both platforms; the user toggle disappears and an enforced lock fails closed where no credential is enrolled. |
 | E4 | The Android shell logs the WebView provider/version at start and warns below a documented floor (`WebViewVersion.MINIMUM_MAJOR`). |
+| E8 (partly) | The bridge serves pages of the configured endpoint's origin only (scheme, host, port): Android injects the shim and answers transport calls only there (`BridgeOrigin`, JVM-tested), iOS answers only the main frame of that origin and rejects everything else with `forbidden`. IdP pages, linked sites and deep links to another origin get no bridge. |
 | E5 | `screenshot_protection` manageable by EMM: Android `FLAG_SECURE`, iOS content cover while not in the foreground (documented limitation — iOS cannot block screenshots). |
 | A2/A3 (prep) | [`TESTING.md`](TESTING.md) — device runbook for bridge smoke test, session expiry, QR onboarding, managed config (TestDPC / `simctl` recipes, no EMM needed), TLS policy, WebView floor. Executing it still needs hardware. |
 | Test layer | Bridge shim contract tests (both transports, out-of-order and duplicate settling, teardown mid-call, double injection) on Node with the shells mocked, plus JVM unit tests for QR payload and version parsing. Both gated in CI. |
@@ -214,6 +215,14 @@ real data.
 * E2. **CSP verification**: confirm the natively-injected shim keeps working
   under hardened UI5 CSP settings on both platforms — needs a real backend
   ([`TESTING.md`](TESTING.md) §7).
+* E8. **Bridge in frames on Android.** `addJavascriptInterface` exposes
+  `__a2u5Android` to every frame and the shell checks the main frame's URL,
+  so a third-party frame inside an app page (e.g. an embedded site) reaches
+  the transport. iOS already ignores frames. Closing it on Android means
+  moving the transport to `WebViewCompat.addWebMessageListener` with the
+  endpoint origin as the allowed-origin rule — a new `androidx.webkit`
+  dependency and a change to the shim's Android path, so it waits for a
+  decision.
 * E4a. Pin the WebView floor in the EMM's compliance rules to the same
   number the shell warns at, and re-check `WebViewVersion.MINIMUM_MAJOR`
   against the UI5 version the backend actually serves.
