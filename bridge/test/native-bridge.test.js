@@ -195,3 +195,20 @@ test("a throwing transport rejects instead of hanging the promise", async () => 
   };
   await assert.rejects(bridge.scanBarcode(), /interface gone/);
 });
+
+test("android: a throwing synchronous call rejects instead of throwing", async () => {
+  // getDeviceInfo and showToast answer without a native callback; an
+  // interface that throws, or device info that is no JSON, must still reach
+  // the app as a rejection - "every method returns a promise".
+  const { window, bridge } = install("android");
+  window.__a2u5Android.showToast = () => {
+    throw new Error("interface gone");
+  };
+  window.__a2u5Android.platformInfo = () => "not json";
+  let toast;
+  assert.doesNotThrow(() => { toast = bridge.showToast("saved"); });
+  await assert.rejects(toast, /interface gone/);
+  let info;
+  assert.doesNotThrow(() => { info = bridge.getDeviceInfo(); });
+  await assert.rejects(info, SyntaxError);
+});

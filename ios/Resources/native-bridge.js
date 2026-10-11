@@ -64,17 +64,24 @@
     platform: android ? "android" : "ios",
 
     // Promise<{platform, model, osVersion, appVersion}>
+    // The two synchronous Android calls run inside the promise as well: an
+    // interface that throws (torn down, or an answer that is no JSON) is a
+    // rejection, never an exception out of the call itself.
     getDeviceInfo: function () {
-      if (android) return Promise.resolve(JSON.parse(android.platformInfo()));
+      if (android)
+        return new Promise(function (resolve) {
+          resolve(JSON.parse(android.platformInfo()));
+        });
       return iosCall("getDeviceInfo");
     },
 
     // Promise<void>
     showToast: function (text) {
-      if (android) {
-        android.showToast(String(text));
-        return Promise.resolve();
-      }
+      if (android)
+        return new Promise(function (resolve) {
+          android.showToast(String(text));
+          resolve();
+        });
       return iosCall("showToast", { text: String(text) });
     },
 
