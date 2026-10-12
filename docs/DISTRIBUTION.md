@@ -75,6 +75,11 @@ The shell is a generic client (one URL, no customer code), so both models work:
 - [ ] **CSP:** the shells inject the shim via the native evaluate APIs, which
       are not subject to the page's CSP — verify against the hardened UI5 CSP
       settings on both platforms before relying on it. (Real-device task.)
+- [x] **Bridge origin:** the native bridge serves pages of the configured
+      endpoint's origin only — IdP login pages and sites an app links to
+      run in the same WebView without it (`BridgeOrigin.kt`, iOS
+      `ShellWebView`). Open: a frame inside an app page still reaches the
+      Android transport (docs/NEXT_STEPS.md, E8).
 - [x] **App lock** enforceable via managed config (`app_lock_enabled`) for
       regulated scenarios — user toggle disappears, devices without an
       enrolled credential are refused.

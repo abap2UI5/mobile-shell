@@ -35,6 +35,7 @@ on a ❌; a failing row becomes an issue or a fix, not a workaround.
 | Console: `showToast("hello")` | | | |
 | Console: `biometricConfirm("test")` — true on success, false on cancel | | | |
 | Console: `getPushToken()` rejects `unavailable` | | | |
+| Page of another origin: no bridge (Android) / calls reject `forbidden` (iOS) | | | |
 
 **Phase 0 exit criterion — barcode scanned in the Android shell arrives in
 the ABAP app against a real backend:** ☐

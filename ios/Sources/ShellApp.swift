@@ -102,7 +102,8 @@ struct RootView: View {
                         Button("Unlock") { authenticate() }
                     }
                 } else if let url = URL(string: activeURL), !activeURL.isEmpty {
-                    ShellWebView(url: url, reloadToken: reloadToken)
+                    ShellWebView(url: url, bridgeEndpoint: URL(string: endpointURL),
+                                 reloadToken: reloadToken)
                         .ignoresSafeArea(edges: .bottom)
                 } else {
                     Text("No endpoint configured")
@@ -166,7 +167,11 @@ struct RootView: View {
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: AppDelegate.deepLinkNotification)) { note in
-                if let url = note.userInfo?["url"] as? String {
+                // Same rule as Android: a deep link counts only on the
+                // configured endpoint's origin.
+                if let url = note.userInfo?["url"] as? String,
+                   let origin = ShellWebView.Coordinator.origin(of: URL(string: url)),
+                   origin == ShellWebView.Coordinator.origin(of: URL(string: endpointURL)) {
                     currentURL = url
                 }
             }
