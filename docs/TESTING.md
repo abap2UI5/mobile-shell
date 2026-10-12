@@ -98,8 +98,11 @@ available" instead of erroring.
 
 And the foreign-origin case: follow a link from the app to another site (or
 open one through the IdP redirect) and run the console calls there. Android:
-`window.abap2ui5Native` is undefined and `__a2u5Android.platformInfo()`
-throws. iOS: every call rejects with `forbidden`.
+`window.abap2ui5Native` and `__a2u5AndroidChannel` are undefined (on a
+WebView without `WEB_MESSAGE_LISTENER`, the log says so at start and
+`__a2u5Android.platformInfo()` throws instead). iOS: every call rejects with
+`forbidden`. In a frame of another origin inside an app page (select it in
+the console's context picker), `__a2u5AndroidChannel` is undefined too.
 
 Android injects the shim after the page has loaded. If the scan button is
 missing on the first screen in the Android shell, the control did not render

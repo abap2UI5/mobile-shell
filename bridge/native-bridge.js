@@ -22,13 +22,14 @@
   // Called by the native side to settle a pending promise.
   // `result` is a JS value (the native side builds the literal), `error` a
   // message string or null/undefined.
-  window.__a2u5BridgeResolve = function (id, result, error) {
+  function settle(id, result, error) {
     var p = pending.get(id);
     if (!p) return;
     pending.delete(id);
     if (error) p.reject(new Error(error));
     else p.resolve(result);
-  };
+  }
+  window.__a2u5BridgeResolve = settle;
 
   function call(invoke) {
     var id = String(++seq);
@@ -43,36 +44,63 @@
     });
   }
 
-  var android = window.__a2u5Android;
+  // Android has two transports. The message channel
+  // (androidx.webkit WebViewCompat.addWebMessageListener) exists only in
+  // frames of the endpoint's origin; the @JavascriptInterface object is the
+  // fallback for a WebView without that feature. The shell installs one of
+  // them, never both.
+  var channel = window.__a2u5AndroidChannel;
+  var android = channel ? null : window.__a2u5Android;
   var ios =
+    !channel &&
+    !android &&
     window.webkit &&
     window.webkit.messageHandlers &&
     window.webkit.messageHandlers.a2u5Bridge;
-  if (!android && !ios) return; // plain browser — no bridge
+  if (!channel && !android && !ios) return; // plain browser — no bridge
 
-  function iosCall(method, extra) {
+  // The channel answers every call with a JSON string
+  // {id, result, error} through the reply proxy of the calling frame.
+  if (channel) {
+    channel.onmessage = function (event) {
+      var answer;
+      try {
+        answer = JSON.parse(event.data);
+      } catch (e) {
+        return;
+      }
+      if (answer && typeof answer.id === "string") {
+        settle(answer.id, answer.result, answer.error);
+      }
+    };
+  }
+
+  // Message transports: the Android channel takes a JSON string, the iOS
+  // message handler a structured object.
+  function messageCall(method, extra) {
     return call(function (id) {
       var msg = { id: id, method: method };
       if (extra) for (var k in extra) msg[k] = extra[k];
-      ios.postMessage(msg);
+      if (channel) channel.postMessage(JSON.stringify(msg));
+      else ios.postMessage(msg);
     });
   }
 
   window.abap2ui5Native = {
     available: true,
     version: 1,
-    platform: android ? "android" : "ios",
+    platform: ios ? "ios" : "android",
 
     // Promise<{platform, model, osVersion, appVersion}>
-    // The two synchronous Android calls run inside the promise as well: an
-    // interface that throws (torn down, or an answer that is no JSON) is a
+    // The two synchronous calls of the Android fallback run inside the
+    // promise as well: an interface that throws (torn down, or an answer that is no JSON) is a
     // rejection, never an exception out of the call itself.
     getDeviceInfo: function () {
       if (android)
         return new Promise(function (resolve) {
           resolve(JSON.parse(android.platformInfo()));
         });
-      return iosCall("getDeviceInfo");
+      return messageCall("getDeviceInfo");
     },
 
     // Promise<void>
@@ -82,7 +110,7 @@
           android.showToast(String(text));
           resolve();
         });
-      return iosCall("showToast", { text: String(text) });
+      return messageCall("showToast", { text: String(text) });
     },
 
     // Promise<string> — resolves with the scanned barcode value,
@@ -92,7 +120,7 @@
         return call(function (id) {
           android.scanBarcode(id);
         });
-      return iosCall("scanBarcode");
+      return messageCall("scanBarcode");
     },
 
     // Promise<string> — the device push token (FCM registration token on
@@ -103,7 +131,7 @@
         return call(function (id) {
           android.getPushToken(id);
         });
-      return iosCall("getPushToken");
+      return messageCall("getPushToken");
     },
 
     // Promise<boolean> — true when the user passed the biometric/device
@@ -114,7 +142,7 @@
         return call(function (id) {
           android.biometricConfirm(id, String(reason));
         });
-      return iosCall("biometricConfirm", { reason: String(reason) });
+      return messageCall("biometricConfirm", { reason: String(reason) });
     },
   };
 

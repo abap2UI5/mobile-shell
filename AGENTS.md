@@ -37,7 +37,7 @@ the phase status table and the risks.
 | `bridge/test/native-bridge.test.js` | Contract tests: the shim against both transports, mocked, in Node |
 | `android/` | Android shell (Kotlin, Gradle): WebView, ZXing scan, QR onboarding, app lock, FCM push, managed config |
 | `android/app/src/main/assets/native-bridge.js` | Byte-identical copy of `bridge/native-bridge.js` |
-| `android/app/src/test/` | JVM unit tests (`OnboardingTest`, `WebViewVersionTest`, `BridgeOriginTest`) |
+| `android/app/src/test/` | JVM unit tests (`OnboardingTest`, `WebViewVersionTest`, `BridgeOriginTest`, `BridgeMessageTest`) |
 | `ios/` | iOS shell (SwiftUI, WKWebView, VisionKit scan, app lock, APNs push, managed config) |
 | `ios/project.yml` | XcodeGen spec. The Xcode project and `Info.plist` are generated from it and git-ignored |
 | `ios/Resources/native-bridge.js` | Byte-identical copy of `bridge/native-bridge.js` |
@@ -57,9 +57,10 @@ the phase status table and the risks.
   feature-detect `window.abap2ui5Native` and individual methods. Every
   method returns a promise. Changes within a major version are additive
   only, and a rename or removal bumps the major version and keeps the old
-  names working for one release. The transport (Android
-  `@JavascriptInterface`, iOS `webkit.messageHandlers`) stays hidden behind
-  the shim, and `__a2u5BridgeResolve` / `__a2u5Android` stay private.
+  names working for one release. The transport (Android message channel
+  with the `@JavascriptInterface` fallback, iOS `webkit.messageHandlers`)
+  stays hidden behind the shim, and `__a2u5BridgeResolve`, `__a2u5Android`
+  and `__a2u5AndroidChannel` stay private.
 - **`abap2ui5native:ready` fires once per document.** Android injects the
   shim in `onPageFinished`, which can be after the first view has rendered,
   and `z2ui5.cc.NativeBridgeScan` listens for the event to render again.
@@ -75,10 +76,16 @@ the phase status table and the risks.
   `screenshot_protection`) carry the same names on both platforms, with the
   precedence managed configuration > stored preference > manual entry/QR
   (docs/DISTRIBUTION.md). An unset key stays under user control.
-- **The bridge serves the endpoint's origin only.** Android checks the main
-  frame's URL with `BridgeOrigin` (JVM-tested) before injecting the shim and
-  in every `@JavascriptInterface` method; iOS checks the message's frame and
-  security origin. A new bridge method keeps that check on both platforms.
+- **The bridge serves the endpoint's origin only.** Android registers its
+  transport with `WebViewCompat.addWebMessageListener` (androidx.webkit) and
+  the endpoint's origin as the allowed-origin rule (`BridgeOrigin`,
+  JVM-tested), so frames of other origins never get it; the listener answers
+  the main frame only. A WebView without `WEB_MESSAGE_LISTENER` falls back
+  to `@JavascriptInterface`, which checks the main frame's URL in every
+  method. Both check before injecting the shim. iOS checks the message's
+  frame and security origin. A new bridge method goes into both Android
+  transports (`BridgeMessage` is the channel's wire format) and keeps the
+  check on both platforms.
 - **HTTPS only.** Android's `network_security_config.xml` allows no
   cleartext, and iOS sets `NSAllowsArbitraryLoads: false` in `project.yml`.
   Adding an exception has to be a deliberate, documented edit.

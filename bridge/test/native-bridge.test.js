@@ -19,7 +19,9 @@ const SHIM = fs.readFileSync(
 
 /**
  * Installs the shim over a fake window.
- * `transport` is "android", "ios" or "browser" (no native side at all).
+ * `transport` is "android" (the @JavascriptInterface fallback),
+ * "android-channel" (the WebViewCompat.addWebMessageListener object), "ios"
+ * or "browser" (no native side at all).
  */
 function install(transport) {
   const calls = [];
@@ -42,6 +44,15 @@ function install(transport) {
       getPushToken: (id) => calls.push({ method: "getPushToken", id }),
       biometricConfirm: (id, reason) =>
         calls.push({ method: "biometricConfirm", id, reason }),
+    };
+  } else if (transport === "android-channel") {
+    window.__a2u5AndroidChannel = {
+      onmessage: null,
+      postMessage: (data) => {
+        assert.strictEqual(typeof data, "string",
+          "the WebMessageListener object carries strings only");
+        calls.push(JSON.parse(data));
+      },
     };
   } else if (transport === "ios") {
     window.webkit = {
@@ -89,12 +100,12 @@ test("a second injection does not replace the live bridge", () => {
     "the ready event belongs to the first injection only");
 });
 
-for (const transport of ["android", "ios"]) {
+for (const transport of ["android", "android-channel", "ios"]) {
   test(`${transport}: advertises contract v1`, () => {
     const { bridge } = install(transport);
     assert.strictEqual(bridge.available, true);
     assert.strictEqual(bridge.version, 1);
-    assert.strictEqual(bridge.platform, transport);
+    assert.strictEqual(bridge.platform, transport === "ios" ? "ios" : "android");
     for (const method of ["getDeviceInfo", "showToast", "scanBarcode",
       "getPushToken", "biometricConfirm"]) {
       assert.strictEqual(typeof bridge[method], "function", `${method} missing`);
@@ -211,4 +222,86 @@ test("android: a throwing synchronous call rejects instead of throwing", async (
   let info;
   assert.doesNotThrow(() => { info = bridge.getDeviceInfo(); });
   await assert.rejects(info, SyntaxError);
+});
+
+// The channel of androidx.webkit's WebMessageListener: the shell answers
+// through the reply proxy of the calling frame with a JSON string.
+function answer(window, payload) {
+  window.__a2u5AndroidChannel.onmessage({ data: JSON.stringify(payload) });
+}
+
+test("android-channel: answers through the channel settle the call", async () => {
+  const { window, bridge, calls } = install("android-channel");
+  const scan = bridge.scanBarcode();
+  const confirm = bridge.biometricConfirm("Approve the posting");
+  assert.deepStrictEqual(calls[1],
+    { id: calls[1].id, method: "biometricConfirm", reason: "Approve the posting" });
+  answer(window, { id: calls[1].id, result: false, error: null });
+  answer(window, { id: calls[0].id, result: null, error: "cancelled" });
+  assert.strictEqual(await confirm, false);
+  await assert.rejects(scan, /cancelled/);
+});
+
+test("android-channel: getDeviceInfo and showToast go through the channel", async () => {
+  const { window, bridge, calls } = install("android-channel");
+  const info = bridge.getDeviceInfo();
+  assert.strictEqual(calls[0].method, "getDeviceInfo");
+  answer(window, { id: calls[0].id, result: { platform: "android" }, error: null });
+  assert.deepStrictEqual(await info, { platform: "android" });
+
+  const toast = bridge.showToast(42);
+  assert.deepStrictEqual(calls[1], { id: calls[1].id, method: "showToast", text: "42" });
+  answer(window, { id: calls[1].id, result: null, error: null });
+  await toast;
+});
+
+test("android-channel: a refused call rejects with forbidden", async () => {
+  // The shell refuses a frame that is not the main frame, or a page whose
+  // origin is no longer the endpoint's.
+  const { window, bridge, calls } = install("android-channel");
+  const token = bridge.getPushToken();
+  answer(window, { id: calls[0].id, result: null, error: "forbidden" });
+  await assert.rejects(token, /forbidden/);
+});
+
+test("android-channel: messages that are no answer are ignored", async () => {
+  const { window, bridge, calls } = install("android-channel");
+  const scan = bridge.scanBarcode();
+  const onmessage = window.__a2u5AndroidChannel.onmessage;
+  assert.doesNotThrow(() => onmessage({ data: "not json" }));
+  assert.doesNotThrow(() => onmessage({ data: "null" }));
+  assert.doesNotThrow(() => onmessage({ data: JSON.stringify({ id: 1, result: "x" }) }));
+  answer(window, { id: calls[0].id, result: "scanned", error: null });
+  assert.strictEqual(await scan, "scanned");
+});
+
+test("android-channel: a throwing channel rejects instead of throwing", async () => {
+  const { window, bridge } = install("android-channel");
+  window.__a2u5AndroidChannel.postMessage = () => {
+    throw new Error("channel gone");
+  };
+  let info;
+  assert.doesNotThrow(() => { info = bridge.getDeviceInfo(); });
+  await assert.rejects(info, /channel gone/);
+});
+
+test("android: the channel wins over the fallback interface", () => {
+  // The shell installs one transport; should a page still see both, the
+  // origin-bound channel is the one to use.
+  const calls = [];
+  const window = {
+    dispatchEvent: () => {},
+    __a2u5Android: { scanBarcode: () => calls.push("interface") },
+    __a2u5AndroidChannel: { postMessage: () => calls.push("channel") },
+  };
+  const previousWindow = global.window;
+  global.window = window;
+  try {
+    (0, eval)(SHIM);
+  } finally {
+    global.window = previousWindow;
+  }
+  window.abap2ui5Native.scanBarcode();
+  assert.deepStrictEqual(calls, ["channel"]);
+  assert.strictEqual(window.abap2ui5Native.platform, "android");
 });

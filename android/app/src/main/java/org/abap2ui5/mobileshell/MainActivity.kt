@@ -8,6 +8,7 @@ import android.graphics.Bitmap
 import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
+import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
 import android.view.WindowManager
@@ -19,6 +20,8 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import org.json.JSONObject
@@ -41,11 +44,17 @@ import org.json.JSONObject
  * The bridge serves pages of the configured endpoint's origin only
  * (BridgeOrigin): IdP login pages and sites an app links to load in the
  * same WebView and get neither the shim nor answers from the native side.
+ * Its transport is the message channel of androidx.webkit
+ * (WebViewCompat.addWebMessageListener), which the WebView hands only to
+ * frames of the endpoint's origin, so a third-party frame inside an app
+ * page does not even see it. A WebView without that feature falls back to
+ * the @JavascriptInterface object, which reaches every frame; there the
+ * main frame's origin is the only check.
  */
 class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
-    private var pendingScanId: String? = null
+    private var pendingScan: Reply? = null
     private var pausedAt: Long = 0
 
     /**
@@ -56,13 +65,17 @@ class MainActivity : AppCompatActivity() {
     @Volatile
     private var bridgeAllowed = false
 
+    /** The allowed-origin rule the message channel is registered with, null when it is not. */
+    private var channelRule: String? = null
+    private var javascriptInterfaceAdded = false
+
     private val scanLauncher = registerForActivityResult(ScanContract()) { result ->
-        val id = pendingScanId ?: return@registerForActivityResult
-        pendingScanId = null
+        val reply = pendingScan ?: return@registerForActivityResult
+        pendingScan = null
         if (result.contents != null) {
-            resolveBridge(id, JSONObject.quote(result.contents), null)
+            reply.send(result.contents, null)
         } else {
-            resolveBridge(id, "null", "cancelled")
+            reply.send(null, "cancelled")
         }
     }
 
@@ -121,13 +134,13 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-        webView.addJavascriptInterface(NativeBridge(), "__a2u5Android")
 
         if (Build.VERSION.SDK_INT >= 33) {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
 
         managed.endpointUrl?.let { saveEndpoint(it) }
+        installBridgeTransport()
 
         if (AppLock.isEnabled(this)) {
             AppLock.gate(this,
@@ -252,7 +265,66 @@ class MainActivity : AppCompatActivity() {
 
     private fun saveEndpoint(url: String) {
         getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_URL, url).apply()
+        installBridgeTransport()
     }
+
+    /**
+     * Registers the bridge transport for the current endpoint. The message
+     * channel's allowed-origin rule is fixed at registration, so a new
+     * endpoint origin re-registers it; the WebView applies it from the next
+     * navigation on, and every endpoint change loads the endpoint next.
+     */
+    private fun installBridgeTransport() {
+        if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
+            if (!javascriptInterfaceAdded) {
+                Log.w(TAG, "WebView without WEB_MESSAGE_LISTENER: bridge falls back to " +
+                    "@JavascriptInterface, which frames inside an app page can reach")
+                webView.addJavascriptInterface(NativeBridge(), "__a2u5Android")
+                javascriptInterfaceAdded = true
+            }
+            return
+        }
+        val rule = BridgeOrigin.allowedOriginRule(endpointUrl())
+        if (rule == channelRule) return
+        if (channelRule != null) {
+            WebViewCompat.removeWebMessageListener(webView, CHANNEL)
+            channelRule = null
+        }
+        if (rule == null) return
+        try {
+            WebViewCompat.addWebMessageListener(webView, CHANNEL, setOf(rule), channelListener)
+            channelRule = rule
+        } catch (e: IllegalArgumentException) {
+            // A host the rule syntax rejects: no frame gets the bridge.
+            Log.w(TAG, "No bridge for origin rule $rule", e)
+        }
+    }
+
+    /**
+     * Native side of the message channel, on the UI thread. The WebView
+     * hands the channel only to frames of the endpoint's origin; the
+     * listener still answers the main frame only (like iOS) and checks the
+     * origin against the endpoint configured now.
+     */
+    private val channelListener =
+        WebViewCompat.WebMessageListener { _, message, sourceOrigin, isMainFrame, replyProxy ->
+            val call = BridgeMessage.parse(message.data) ?: return@WebMessageListener
+            val reply = Reply { result, error ->
+                runOnUiThread { replyProxy.postMessage(BridgeMessage.reply(call.id, result, error)) }
+            }
+            if (!isMainFrame || !BridgeOrigin.isAllowed(sourceOrigin.toString(), endpointUrl())) {
+                reply.send(null, "forbidden")
+                return@WebMessageListener
+            }
+            when (call.method) {
+                "getDeviceInfo" -> reply.send(deviceInfo(), null)
+                "showToast" -> { toast(call.text); reply.send(null, null) }
+                "scanBarcode" -> scan(reply)
+                "getPushToken" -> pushToken(reply)
+                "biometricConfirm" -> confirmBiometric(call.reason, reply)
+                else -> reply.send(null, "unsupported")
+            }
+        }
 
     private fun askForEndpoint() {
         val input = EditText(this).apply {
@@ -285,19 +357,73 @@ class MainActivity : AppCompatActivity() {
     private fun loadAsset(name: String): String =
         assets.open(name).bufferedReader().use { it.readText() }
 
-    /** Settle a pending bridge promise; `resultLiteral` must be a JS literal. */
-    private fun resolveBridge(id: String, resultLiteral: String, error: String?) {
+    /** Settle a pending bridge promise of the fallback transport through `__a2u5BridgeResolve`. */
+    private fun resolveBridge(id: String, result: Any?, error: String?) {
         val errorLiteral = if (error == null) "null" else JSONObject.quote(error)
-        val js = "window.__a2u5BridgeResolve(${JSONObject.quote(id)}, $resultLiteral, $errorLiteral)"
+        val js = "window.__a2u5BridgeResolve(${JSONObject.quote(id)}, " +
+            "${BridgeMessage.literal(result)}, $errorLiteral)"
         runOnUiThread { webView.evaluateJavascript(js, null) }
     }
 
     /**
-     * Native side of bridge contract v1 — runs on a WebView worker thread.
+     * Where the answer to one bridge call goes: the calling frame's reply
+     * proxy (message channel) or `__a2u5BridgeResolve` (fallback). [result]
+     * is null, a String, a Boolean or a JSONObject (see BridgeMessage).
+     */
+    private fun interface Reply {
+        fun send(result: Any?, error: String?)
+    }
+
+    // The bridge methods, shared by both transports.
+
+    private fun deviceInfo(): JSONObject =
+        JSONObject()
+            .put("platform", "android")
+            .put("model", "${Build.MANUFACTURER} ${Build.MODEL}")
+            .put("osVersion", Build.VERSION.RELEASE)
+            .put("appVersion", BuildConfig.VERSION_NAME)
+
+    private fun toast(text: String) {
+        runOnUiThread {
+            Toast.makeText(this@MainActivity, text, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun scan(reply: Reply) {
+        runOnUiThread {
+            if (pendingScan != null) {
+                reply.send(null, "busy")
+                return@runOnUiThread
+            }
+            pendingScan = reply
+            scanLauncher.launch(ScanOptions().apply {
+                setBeepEnabled(false)
+                setOrientationLocked(false)
+            })
+        }
+    }
+
+    private fun pushToken(reply: Reply) {
+        val token = PushService.storedToken(this@MainActivity)
+        if (token != null) reply.send(token, null) else reply.send(null, "unavailable")
+    }
+
+    private fun confirmBiometric(reason: String, reply: Reply) {
+        runOnUiThread {
+            AppLock.confirm(this@MainActivity, reason,
+                onResult = { ok -> reply.send(ok, null) },
+                onUnavailable = { reply.send(null, "unavailable") })
+        }
+    }
+
+    /**
+     * Fallback transport of bridge contract v1, for a WebView without
+     * WEB_MESSAGE_LISTENER — runs on a WebView worker thread.
      *
-     * `addJavascriptInterface` hands `__a2u5Android` to every page, so each
-     * method first checks that the page may use the bridge and throws
-     * otherwise: the page sees a JS error, the shim a rejected promise.
+     * `addJavascriptInterface` hands `__a2u5Android` to every page and every
+     * frame, so each method first checks that the main frame may use the
+     * bridge and throws otherwise: the page sees a JS error, the shim a
+     * rejected promise.
      */
     inner class NativeBridge {
 
@@ -305,60 +431,36 @@ class MainActivity : AppCompatActivity() {
             if (!bridgeAllowed) throw SecurityException("forbidden")
         }
 
+        private fun replyTo(id: String) = Reply { result, error -> resolveBridge(id, result, error) }
+
         @JavascriptInterface
         fun platformInfo(): String {
             requireAllowed()
-            return JSONObject()
-                .put("platform", "android")
-                .put("model", "${Build.MANUFACTURER} ${Build.MODEL}")
-                .put("osVersion", Build.VERSION.RELEASE)
-                .put("appVersion", BuildConfig.VERSION_NAME)
-                .toString()
+            return deviceInfo().toString()
         }
 
         @JavascriptInterface
         fun showToast(text: String) {
             requireAllowed()
-            runOnUiThread {
-                Toast.makeText(this@MainActivity, text, Toast.LENGTH_SHORT).show()
-            }
+            toast(text)
         }
 
         @JavascriptInterface
         fun scanBarcode(id: String) {
             requireAllowed()
-            runOnUiThread {
-                if (pendingScanId != null) {
-                    resolveBridge(id, "null", "busy")
-                    return@runOnUiThread
-                }
-                pendingScanId = id
-                scanLauncher.launch(ScanOptions().apply {
-                    setBeepEnabled(false)
-                    setOrientationLocked(false)
-                })
-            }
+            scan(replyTo(id))
         }
 
         @JavascriptInterface
         fun getPushToken(id: String) {
             requireAllowed()
-            val token = PushService.storedToken(this@MainActivity)
-            if (token != null) {
-                resolveBridge(id, JSONObject.quote(token), null)
-            } else {
-                resolveBridge(id, "null", "unavailable")
-            }
+            pushToken(replyTo(id))
         }
 
         @JavascriptInterface
         fun biometricConfirm(id: String, reason: String) {
             requireAllowed()
-            runOnUiThread {
-                AppLock.confirm(this@MainActivity, reason,
-                    onResult = { ok -> resolveBridge(id, if (ok) "true" else "false", null) },
-                    onUnavailable = { resolveBridge(id, "null", "unavailable") })
-            }
+            confirmBiometric(reason, replyTo(id))
         }
     }
 
@@ -369,5 +471,9 @@ class MainActivity : AppCompatActivity() {
         private const val MENU_QR_ONBOARDING = 2
         private const val MENU_APP_LOCK = 3
         private const val BACKGROUND_RELOAD_MS = 30L * 60 * 1000
+        private const val TAG = "Abap2UI5Shell"
+
+        /** The message channel's object in the page; private like `__a2u5Android`. */
+        private const val CHANNEL = "__a2u5AndroidChannel"
     }
 }
