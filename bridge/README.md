@@ -37,8 +37,9 @@ Rules:
 * **Everything returns a promise**, so ABAP-side JS is platform-independent.
 * **Additive changes only** within a major version. Renames/removals bump the
   major version and must keep the old names working for one release.
-* Transport (Android `@JavascriptInterface`, iOS `webkit.messageHandlers`) is
-  an implementation detail — ABAP apps talk only to `window.abap2ui5Native`.
+* Transport (Android message channel or `@JavascriptInterface`, iOS
+  `webkit.messageHandlers`, see [Transports](#transports)) is an
+  implementation detail — ABAP apps talk only to `window.abap2ui5Native`.
 * **Only the endpoint's origin gets the bridge.** Navigation stays inside the
   shell, so IdP login pages and sites an app links to load in the same
   WebView. The native side answers only the main frame of a page whose
@@ -47,8 +48,25 @@ Rules:
   injects no shim and its transport throws; iOS injects the shim (a
   `WKUserScript` runs in every main-frame document), every call rejects with
   `Error("forbidden")`, and calls from frames inside a page get no answer.
-  Known gap: Android's `@JavascriptInterface` cannot tell frames apart, so a
-  frame inside an app page reaches the transport there (docs/NEXT_STEPS.md, E8).
+  On Android the message channel exists only in frames of the endpoint's
+  origin, so a third-party frame inside an app page never sees it, and a
+  call from a frame that is not the main frame rejects with
+  `Error("forbidden")`. Only the `@JavascriptInterface` fallback (a WebView
+  without `WEB_MESSAGE_LISTENER`) reaches every frame and checks the main
+  frame's origin alone (docs/NEXT_STEPS.md, E8).
+
+## Transports
+
+| Platform | Transport | Answer |
+|---|---|---|
+| Android | `window.__a2u5AndroidChannel`, the object of androidx.webkit's `WebViewCompat.addWebMessageListener`, registered with the endpoint's origin as the only allowed-origin rule. Calls go out as a JSON string `{id, method, text?, reason?}` | JSON string `{id, result, error}` through the calling frame's reply proxy, read by the shim's `onmessage` |
+| Android, fallback | `window.__a2u5Android`, an `@JavascriptInterface` object, when the WebView lacks `WebViewFeature.WEB_MESSAGE_LISTENER` | `__a2u5BridgeResolve` (see below); `getDeviceInfo` and `showToast` answer synchronously |
+| iOS | `webkit.messageHandlers.a2u5Bridge` | `__a2u5BridgeResolve` |
+
+The shell installs one Android transport, never both; should a page see
+both, the shim uses the channel. A change of the endpoint's origin
+re-registers the channel, effective from the next navigation (the shell
+loads the endpoint right after).
 
 ## Ready event
 
@@ -74,5 +92,5 @@ settles it by evaluating:
 window.__a2u5BridgeResolve(id, result /* JS value */, error /* string|null */)
 ```
 
-`__a2u5BridgeResolve` and `__a2u5Android` are private — never call them from
-app code.
+`__a2u5BridgeResolve`, `__a2u5Android` and `__a2u5AndroidChannel` are
+private — never call them from app code.

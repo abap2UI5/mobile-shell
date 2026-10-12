@@ -86,8 +86,9 @@ window.abap2ui5Native = {
 ```
 
 All methods are promise-based so ABAP-side JS is identical on both platforms.
-The transport differs per platform (Android `@JavascriptInterface` object,
-iOS `webkit.messageHandlers`) and is fully hidden by the shim. See
+The transport differs per platform (Android message channel of
+androidx.webkit with an `@JavascriptInterface` fallback, iOS
+`webkit.messageHandlers`) and is fully hidden by the shim. See
 [bridge/README.md](bridge/README.md) for details and versioning rules.
 
 ## Phases

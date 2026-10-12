@@ -78,8 +78,12 @@ The shell is a generic client (one URL, no customer code), so both models work:
 - [x] **Bridge origin:** the native bridge serves pages of the configured
       endpoint's origin only — IdP login pages and sites an app links to
       run in the same WebView without it (`BridgeOrigin.kt`, iOS
-      `ShellWebView`). Open: a frame inside an app page still reaches the
-      Android transport (docs/NEXT_STEPS.md, E8).
+      `ShellWebView`). Frames of other origins inside an app page get no
+      transport either: Android hands its message channel to the endpoint's
+      origin only (androidx.webkit). On a WebView without
+      `WEB_MESSAGE_LISTENER` the shell falls back to `@JavascriptInterface`,
+      which every frame reaches; pin the WebView floor (E4a) so the fleet
+      never runs that fallback.
 - [x] **App lock** enforceable via managed config (`app_lock_enabled`) for
       regulated scenarios — user toggle disappears, devices without an
       enrolled credential are refused.

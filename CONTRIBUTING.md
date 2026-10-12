@@ -23,7 +23,7 @@ diff bridge/native-bridge.js ios/Resources/native-bridge.js
 node --test bridge/test/native-bridge.test.js
 
 # ABAP sample, against abap2UI5 main
-npx -y @abaplint/cli@latest abaplint.json
+npx -y @abaplint/cli@2.120.75 abaplint.json
 
 # Android (JDK 17, Gradle 8.9, Android SDK)
 cd android && gradle testDebugUnitTest && gradle assembleDebug

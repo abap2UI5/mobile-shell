@@ -39,6 +39,9 @@ dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("com.google.android.material:material:1.12.0")
+    // Bridge transport: WebViewCompat.addWebMessageListener hands the bridge
+    // object to frames of the endpoint's origin only (docs/NEXT_STEPS.md, E8).
+    implementation("androidx.webkit:webkit:1.12.1")
     // Barcode scanning: bridge scanBarcode() + QR onboarding (Phase 1).
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
     // App lock + bridge biometricConfirm() (Phase 1).

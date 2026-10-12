@@ -31,6 +31,17 @@ object BridgeOrigin {
         }
     }
 
+    /**
+     * The allowed-origin rule for `WebViewCompat.addWebMessageListener`:
+     * `scheme://host`, with `:port` only when it is not the scheme's default
+     * (the rule syntax takes the default port from the scheme). Null when
+     * the endpoint is unusable, so no frame gets the bridge object.
+     */
+    fun allowedOriginRule(endpointUrl: String?): String? {
+        val origin = origin(endpointUrl) ?: return null
+        return origin.removeSuffix(if (origin.startsWith("https:")) ":443" else ":80")
+    }
+
     /** True when [pageUrl] has the origin of [endpointUrl]; false when either is unusable. */
     fun isAllowed(pageUrl: String?, endpointUrl: String?): Boolean {
         val endpoint = origin(endpointUrl) ?: return false

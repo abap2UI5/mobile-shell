@@ -1,5 +1,6 @@
 package org.abap2ui5.mobileshell
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -53,5 +54,17 @@ class BridgeOriginTest {
         assertFalse(BridgeOrigin.isAllowed("https://host.example.com/sap/bc/z2ui5", ""))
         assertFalse(BridgeOrigin.isAllowed("https://host.example.com/sap/bc/z2ui5", "host.example.com"))
         assertNull(BridgeOrigin.origin("not a url"))
+    }
+
+    @Test
+    fun `the allowed-origin rule names the endpoint origin`() {
+        assertEquals("https://host.example.com", BridgeOrigin.allowedOriginRule(endpoint))
+        assertEquals("https://host.example.com", BridgeOrigin.allowedOriginRule("https://HOST.example.com:443/x"))
+        assertEquals("https://host.example.com:44300",
+            BridgeOrigin.allowedOriginRule("https://host.example.com:44300/sap/bc/z2ui5"))
+        assertEquals("http://host.example.com:8080", BridgeOrigin.allowedOriginRule("http://host.example.com:8080/"))
+        assertEquals("http://host.example.com", BridgeOrigin.allowedOriginRule("http://host.example.com/"))
+        assertNull(BridgeOrigin.allowedOriginRule(null))
+        assertNull(BridgeOrigin.allowedOriginRule("host.example.com"))
     }
 }

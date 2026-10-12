@@ -32,4 +32,4 @@ jobs:
           node-version: "22"
 
       - name: abaplint against abap2UI5 main
-        run: npx -y @abaplint/cli@latest abaplint.json
+        run: npx -y @abaplint/cli@2.120.75 abaplint.json
