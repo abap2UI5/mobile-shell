@@ -127,7 +127,7 @@ diff bridge/native-bridge.js ios/Resources/native-bridge.js
 node --test bridge/test/native-bridge.test.js
 
 # ABAP sample (what the abap workflow runs, against abap2UI5 main)
-npx -y @abaplint/cli@latest abaplint.json
+npx -y @abaplint/cli@2.120.75 abaplint.json
 
 # Android (needs JDK 17, Gradle 8.9 and the Android SDK)
 cd android && gradle testDebugUnitTest && gradle assembleDebug
@@ -163,7 +163,5 @@ PLAN.md and docs/NEXT_STEPS.md in the same pull request.
   and bind this repository too. Known gaps, each waiting on a decision:
   - There is no `package.json`, so there is no `npm run check` / `npm test`
     (§3) and no `engines.node` (§4).
-  - abaplint runs as `@abaplint/cli@latest` rather than the ecosystem's pin
-    (§4).
   - The workflow file names have no verb prefix (`abap.yml`, `bridge.yml`),
     and the `name:` keys use snake case (`build_android`) (§2).
