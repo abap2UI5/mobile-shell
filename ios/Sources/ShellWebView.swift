@@ -50,6 +50,9 @@ struct ShellWebView: UIViewRepresentable {
         #endif
         context.coordinator.webView = webView
         context.coordinator.allowedOrigin = Coordinator.origin(of: bridgeEndpoint)
+        // what is loaded here is not loaded again by the first updateUIView
+        context.coordinator.lastReloadToken = reloadToken
+        context.coordinator.lastRequestedURL = url.absoluteString
         webView.load(URLRequest(url: url))
         return webView
     }
@@ -58,6 +61,7 @@ struct ShellWebView: UIViewRepresentable {
         context.coordinator.allowedOrigin = Coordinator.origin(of: bridgeEndpoint)
         if context.coordinator.lastReloadToken != reloadToken {
             context.coordinator.lastReloadToken = reloadToken
+            context.coordinator.lastRequestedURL = url.absoluteString
             webView.load(URLRequest(url: url))
             return
         }

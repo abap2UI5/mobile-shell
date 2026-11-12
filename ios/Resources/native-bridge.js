@@ -77,6 +77,11 @@
 
   // Message transports: the Android channel takes a JSON string, the iOS
   // message handler a structured object.
+  // A text argument travels as a string; a missing one as "", not "undefined".
+  function text(value) {
+    return value == null ? "" : String(value);
+  }
+
   function messageCall(method, extra) {
     return call(function (id) {
       var msg = { id: id, method: method };
@@ -104,13 +109,13 @@
     },
 
     // Promise<void>
-    showToast: function (text) {
+    showToast: function (message) {
       if (android)
         return new Promise(function (resolve) {
-          android.showToast(String(text));
+          android.showToast(text(message));
           resolve();
         });
-      return messageCall("showToast", { text: String(text) });
+      return messageCall("showToast", { text: text(message) });
     },
 
     // Promise<string> — resolves with the scanned barcode value,
@@ -140,9 +145,9 @@
     biometricConfirm: function (reason) {
       if (android)
         return call(function (id) {
-          android.biometricConfirm(id, String(reason));
+          android.biometricConfirm(id, text(reason));
         });
-      return messageCall("biometricConfirm", { reason: String(reason) });
+      return messageCall("biometricConfirm", { reason: text(reason) });
     },
   };
 

@@ -60,6 +60,19 @@ class OnboardingTest {
     }
 
     @Test
+    fun `scheme is matched case-insensitively`() {
+        assertEquals("HTTPS://HOST/Z2UI5", Onboarding.parseQrPayload("HTTPS://HOST/Z2UI5")?.url)
+        assertEquals("Https://host/z2ui5",
+            Onboarding.parseQrPayload("""{"url":"Https://host/z2ui5"}""")?.url)
+    }
+
+    @Test
+    fun `json url that is no web url is rejected`() {
+        assertNull(Onboarding.parseQrPayload("""{"url":"javascript:alert(1)"}"""))
+        assertNull(Onboarding.parseQrPayload("""{"url":"file:///sdcard/x.html"}"""))
+    }
+
+    @Test
     fun `arbitrary qr content is rejected`() {
         assertNull(Onboarding.parseQrPayload("WIFI:S=guest;T=WPA;P=secret;;"))
         assertNull(Onboarding.parseQrPayload(""))

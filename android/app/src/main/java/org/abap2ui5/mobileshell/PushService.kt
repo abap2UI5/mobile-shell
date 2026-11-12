@@ -40,8 +40,11 @@ class PushService : FirebaseMessagingService() {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
             deepLink?.let { putExtra(EXTRA_DEEPLINK_URL, it) }
         }
+        // One request code per notification: a shared one would let the
+        // newest deep link overwrite the extras of every earlier notification.
+        val notificationId = System.currentTimeMillis().toInt()
         val pending = PendingIntent.getActivity(
-            this, 0, intent,
+            this, notificationId, intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -49,7 +52,7 @@ class PushService : FirebaseMessagingService() {
             NotificationChannel(CHANNEL_ID, getString(R.string.app_name),
                 NotificationManager.IMPORTANCE_DEFAULT))
         manager.notify(
-            System.currentTimeMillis().toInt(),
+            notificationId,
             NotificationCompat.Builder(this, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.stat_notify_chat)
                 .setContentTitle(title)

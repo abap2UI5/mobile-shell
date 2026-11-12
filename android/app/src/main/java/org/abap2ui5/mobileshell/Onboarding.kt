@@ -30,13 +30,13 @@ object Onboarding {
     /** Parses a scanned payload; null when it is not a usable onboarding code. */
     fun parseQrPayload(payload: String): Payload? {
         val trimmed = payload.trim()
-        if (trimmed.startsWith("https://") || trimmed.startsWith("http://")) {
+        if (isWebUrl(trimmed)) {
             return Payload(trimmed)
         }
         if (trimmed.startsWith("{")) {
             return try {
                 val json = JSONObject(trimmed)
-                val url = json.optString("url").trim().takeIf { it.isNotBlank() } ?: return null
+                val url = json.optString("url").trim().takeIf { isWebUrl(it) } ?: return null
                 Payload(
                     url = url,
                     msHost = json.optString("msHost").trim().takeIf { it.isNotBlank() },
@@ -49,16 +49,28 @@ object Onboarding {
         return null
     }
 
+    /** An http(s) URL; the scheme is case-insensitive (QR codes often carry it upper case). */
+    private fun isWebUrl(s: String): Boolean =
+        s.startsWith("https://", ignoreCase = true) || s.startsWith("http://", ignoreCase = true)
+
     /**
-     * Parses and stores a scanned payload.
+     * Parses and stores a scanned payload. Mobile Services coordinates the
+     * payload does not carry are removed, so an earlier code's do not stay;
+     * with coordinates and a push token, the device registers right away
+     * (the token usually arrived before the code was scanned).
      * Returns the endpoint URL, or null when the payload is not usable.
      */
     fun onboard(context: Context, payload: String): String? {
         val parsed = parseQrPayload(payload) ?: return null
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().apply {
-            parsed.msHost?.let { putString(MobileServicesPush.KEY_MS_HOST, it) }
-            parsed.msAppId?.let { putString(MobileServicesPush.KEY_MS_APP_ID, it) }
+            if (parsed.msHost != null) putString(MobileServicesPush.KEY_MS_HOST, parsed.msHost)
+            else remove(MobileServicesPush.KEY_MS_HOST)
+            if (parsed.msAppId != null) putString(MobileServicesPush.KEY_MS_APP_ID, parsed.msAppId)
+            else remove(MobileServicesPush.KEY_MS_APP_ID)
         }.apply()
+        if (parsed.msHost != null && parsed.msAppId != null) {
+            PushService.storedToken(context)?.let { MobileServicesPush.registerAsync(context, it) }
+        }
         return parsed.url
     }
 }

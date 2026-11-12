@@ -165,6 +165,19 @@ for (const transport of ["android", "android-channel", "ios"]) {
     window.__a2u5BridgeResolve(calls[0].id, true, null);
     assert.strictEqual(await promise, true);
   });
+
+  test(`${transport}: a missing text or reason travels as an empty string`, async () => {
+    const { window, bridge, calls } = install(transport);
+    const confirm = bridge.biometricConfirm();
+    assert.strictEqual(calls[0].reason, "");
+    window.__a2u5BridgeResolve(calls[0].id, true, null);
+    await confirm;
+    const toast = bridge.showToast(null);
+    const sent = calls.find((c) => c.method === "showToast");
+    assert.strictEqual(sent.text, "");
+    if (transport !== "android") window.__a2u5BridgeResolve(sent.id, null, null);
+    await toast;
+  });
 }
 
 test("android: getDeviceInfo resolves from the synchronous interface", async () => {

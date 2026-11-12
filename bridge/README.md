@@ -35,6 +35,8 @@ Rules:
 * **Feature-detect, never assume.** In a plain browser `window.abap2ui5Native`
   is undefined; ABAP apps must degrade gracefully.
 * **Everything returns a promise**, so ABAP-side JS is platform-independent.
+* `text` and `reason` reach the shell as strings; one the app leaves out
+  (`undefined`, `null`) arrives as `""`, never as `"undefined"`.
 * **Additive changes only** within a major version. Renames/removals bump the
   major version and must keep the old names working for one release.
 * Transport (Android message channel or `@JavascriptInterface`, iOS
