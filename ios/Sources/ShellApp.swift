@@ -29,6 +29,9 @@ struct ShellApp: App {
 final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
 
     static let deepLinkNotification = Notification.Name("a2u5DeepLink")
+    /// A tap that launches the app arrives before RootView subscribes to
+    /// the notification: the link waits here until RootView takes it.
+    static var pendingDeepLink: String?
 
     func application(
         _ application: UIApplication,
@@ -55,6 +58,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
                                 didReceive response: UNNotificationResponse,
                                 withCompletionHandler completionHandler: @escaping () -> Void) {
         if let url = response.notification.request.content.userInfo["url"] as? String {
+            Self.pendingDeepLink = url
             NotificationCenter.default.post(
                 name: Self.deepLinkNotification, object: nil, userInfo: ["url": url])
         }
@@ -114,9 +118,10 @@ struct RootView: View {
             .navigationBarTitleDisplayMode(.inline)
             // Managed settings are not offered in the UI: an EMM-pushed
             // endpoint would be restored on the next start anyway, and an
-            // enforced app lock must not be toggled away.
+            // enforced app lock must not be toggled away. Nothing is offered
+            // on the lock screen: the lock is turned off only once unlocked.
             .toolbar {
-                if managed.endpointURL == nil || !appLockManaged {
+                if (managed.endpointURL == nil || !appLockManaged) && (!appLockEnabled || unlocked) {
                     Menu {
                         if managed.endpointURL == nil {
                             Button("Set endpoint") {
@@ -147,6 +152,7 @@ struct RootView: View {
                 applyManagedConfig()
                 if endpointURL.isEmpty && managed.endpointURL == nil { showSettings = true }
                 if appLockEnabled { authenticate() }
+                takePendingDeepLink()
             }
             .onChange(of: scenePhase) { phase in
                 switch phase {
@@ -166,14 +172,8 @@ struct RootView: View {
                     break
                 }
             }
-            .onReceive(NotificationCenter.default.publisher(for: AppDelegate.deepLinkNotification)) { note in
-                // Same rule as Android: a deep link counts only on the
-                // configured endpoint's origin.
-                if let url = note.userInfo?["url"] as? String,
-                   let origin = ShellWebView.Coordinator.origin(of: URL(string: url)),
-                   origin == ShellWebView.Coordinator.origin(of: URL(string: endpointURL)) {
-                    currentURL = url
-                }
+            .onReceive(NotificationCenter.default.publisher(for: AppDelegate.deepLinkNotification)) { _ in
+                takePendingDeepLink()
             }
             .alert("abap2UI5 endpoint", isPresented: $showSettings) {
                 TextField("https://host/sap/bc/z2ui5?sap-client=100", text: $draftURL)
@@ -199,6 +199,19 @@ struct RootView: View {
                 .foregroundStyle(.secondary)
         }
         .ignoresSafeArea()
+    }
+
+    /// Same rule as Android: a deep link counts only on the configured
+    /// endpoint's origin. The reload token makes a link to the page already
+    /// requested load again.
+    private func takePendingDeepLink() {
+        guard let url = AppDelegate.pendingDeepLink else { return }
+        AppDelegate.pendingDeepLink = nil
+        if let origin = ShellWebView.Coordinator.origin(of: URL(string: url)),
+           origin == ShellWebView.Coordinator.origin(of: URL(string: endpointURL)) {
+            currentURL = url
+            reloadToken += 1
+        }
     }
 
     private func applyManagedConfig() {
